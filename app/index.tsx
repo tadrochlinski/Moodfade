@@ -8,9 +8,7 @@ import * as SecureStore from 'expo-secure-store';
 
 
 const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID!;
-const redirectUri = AuthSession.makeRedirectUri({
-  useProxy: true,
-});
+const redirectUri = AuthSession.makeRedirectUri();
 
 console.log('➡️ redirectUri used:', redirectUri);
 
@@ -62,7 +60,7 @@ export default function LoginScreen() {
         }
       })();
     }
-  }, [response, request, setToken, router]);
+  }, [response, request, setToken, router, discovery.tokenEndpoint]);
 
   return (
     <View style={styles.container}>
