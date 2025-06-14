@@ -98,5 +98,5 @@ This project is in development and intended for educational and prototyping purp
 
 ## Author
 
-Tadeusz Rochliński  
+Tomasz Drochliński
 GitHub: [@tadrochlinski](https://github.com/tadrochlinski)
