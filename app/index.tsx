@@ -1,20 +1,22 @@
 import React, { useEffect } from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet, Dimensions } from 'react-native';
 import SpotifyButton from '../components/SpotifyButton';
 import * as AuthSession from 'expo-auth-session';
 import { useSpotify } from '../contexts/SpotifyContext';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import LottieView from 'lottie-react-native';
+import backgroundAnimation from '../assets/lottie/Background.json';
 
+const { width, height } = Dimensions.get('window');
 
 const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID!;
 const redirectUri = AuthSession.makeRedirectUri();
 
 console.log('➡️ redirectUri used:', redirectUri);
 
-
 export default function LoginScreen() {
-  const { token, setToken } = useSpotify(); // <--- token dodany
+  const { token, setToken } = useSpotify();
   const router = useRouter();
 
   const discovery = {
@@ -26,13 +28,17 @@ export default function LoginScreen() {
     {
       clientId,
       redirectUri,
-      scopes: ['user-read-private', 'playlist-read-private'],
+      scopes: [
+        'user-read-private',
+        'playlist-read-private',
+        'playlist-modify-private',
+        'playlist-modify-public',
+      ],
       usePKCE: true,
     },
     discovery
   );
 
-  // ⏩ Automatyczne przejście dalej, jeśli token już istnieje
   useEffect(() => {
     if (token) {
       console.log('🔐 Token already exists, skipping login screen...');
@@ -70,9 +76,11 @@ export default function LoginScreen() {
     }
   }, [response, request, setToken, router, discovery.tokenEndpoint]);
 
-
   return (
     <View style={styles.container}>
+      {/* 🎥 Background animation */}
+      <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
+
       <Image source={require('../assets/moodfade_banner.png')} style={styles.banner} resizeMode="contain" />
       <SpotifyButton onPress={() => promptAsync()} />
     </View>
