@@ -1,50 +1,99 @@
-# Welcome to your Expo app 👋
+# 🎵 Moodfade
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Feel the rhythm of your mood.**  
+Moodfade is a mobile app built with **React Native (Expo)** that helps you generate mood-based Spotify playlists using your preferences and real-time mood selection. It's a minimalist, AI-assisted music companion that makes music work for your mind.
 
-## Get started
+---
 
-1. Install dependencies
+## ✨ Features
 
-   ```bash
-   npm install
-   ```
+- 🔐 **Spotify Authentication** (OAuth)
+- 🎧 Generate playlists based on today's mood
+- ❤️ Add your favorite artists
+- 🔀 Mix tracks from Firebase and Spotify
+- 🎶 Automatically create and update the *Moodfade* playlist in your Spotify account
+- 🧠 Feedback system to reflect how the music made you feel
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## 🖼️ App Screenshots
 
-In the output, you'll find options to open the app in a
+| Splash & Login | Spotify Auth | Preferences |
+|----------------|--------------|-------------|
+| ![splash](./screenshots/1000003760.jpg) | ![auth](./screenshots/1000003761.jpg) | ![prefs](./screenshots/1000003762.jpg) |
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+| Mood Selection | Loading | Playlist Ready |
+|----------------|---------|----------------|
+| ![mood](./screenshots/1000003769.jpg) | ![loading](./screenshots/1000003765.jpg) | ![ready](./screenshots/1000003766.jpg) |
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+| Feedback |
+|----------|
+| ![feedback](./screenshots/1000003768.jpg) |
 
-## Get a fresh project
+> Make sure to place these images inside a `screenshots/` folder in your project root.
 
-When you're ready, run:
+---
+
+## ⚙️ Installation
+
+1. Clone the repository:
 
 ```bash
-npm run reset-project
+git clone https://github.com/tadrochlinski/Moodfade.git
+cd Moodfade
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Install dependencies:
 
-## Learn more
+```bash
+npm install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+3. Run the app:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx expo start
+```
 
-## Join the community
+Scan the QR code using the **Expo Go** app on your phone.
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 💡 How It Works
+
+1. You log in with your Spotify account.
+2. You enter your name and favorite artists.
+3. You pick a mood for today.
+4. The app pulls:
+   - 30 random tracks from Firebase based on the selected mood
+   - 15 tracks from your favorite artists (via Spotify)
+5. The app creates or updates a *Moodfade* playlist in your Spotify account.
+6. You listen to the playlist directly in the Spotify app.
+7. After the session, you rate your mood.
+
+---
+
+## 🛠️ Built With
+
+- [Expo + React Native](https://expo.dev/)
+- [Firebase Firestore](https://firebase.google.com/)
+- [Spotify Web API](https://developer.spotify.com/)
+- [AsyncStorage & SecureStore](https://docs.expo.dev/)
+- [React Navigation](https://reactnavigation.org/)
+
+---
+
+## 📄 License
+
+This project is in development and intended for educational and prototyping purposes. Not affiliated with Spotify.
+
+---
+
+## 👨‍💻 Author
+
+**Tadeusz Rochliński**  
+GitHub: [@tadrochlinski](https://github.com/tadrochlinski)
+
+---
+
+> Found it helpful? Leave a ⭐ on the repo!

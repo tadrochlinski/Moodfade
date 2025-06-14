@@ -25,7 +25,7 @@ export default function MoodScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#000', padding: 20, justifyContent: 'center' }}>
       <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 30, textAlign: 'center' }}>
-        What&aposs your mood today?
+        What's your mood today?
       </Text>
 
       {moodOptions.map(({ label, emoji }) => (
