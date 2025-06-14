@@ -1,5 +1,7 @@
-import { Text, ScrollView } from 'react-native';
+import { useEffect } from 'react';
+import { Text, ScrollView, View, ActivityIndicator } from 'react-native';
 import { useUser } from '../contexts/UserContext';
+import useMoodSongs from '../hooks/useMoodSongs';
 
 const moodEmojis: Record<string, string> = {
   'Positive & Uplifting': '😊',
@@ -12,8 +14,6 @@ const moodEmojis: Record<string, string> = {
 
 export default function HomeScreen() {
   const { userData } = useUser();
-  console.log('User data (raw):', userData);
-
   const name = userData?.name || 'Friend';
   const mood = userData?.mood || 'Unknown';
   const emoji = moodEmojis[mood] || '🎵';
@@ -28,6 +28,26 @@ export default function HomeScreen() {
     rawArtists.length > 2
       ? `${rawArtists.slice(0, 2).join(', ')} and more`
       : rawArtists.join(', ') || 'N/A';
+
+  const { tracks, loading } = useMoodSongs(mood);
+
+  useEffect(() => {
+  if (!loading) {
+    console.log(`🎧 Found ${tracks.length} tracks for mood "${mood}":`);
+    tracks.forEach((track, index) => {
+      console.log(`${index + 1}. ${track.title} — ${track.author}`);
+    });
+  }
+}, [tracks, loading, mood]);
+
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView
