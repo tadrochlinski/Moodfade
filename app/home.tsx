@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { Text, ScrollView, View, ActivityIndicator } from 'react-native';
+import { Text, ScrollView, View, ActivityIndicator, Pressable } from 'react-native';
 import { useUser } from '../contexts/UserContext';
 import useMoodSongs from '../hooks/useMoodSongs';
+import { useRouter } from 'expo-router';
 
 const moodEmojis: Record<string, string> = {
   'Positive & Uplifting': '😊',
@@ -14,6 +15,8 @@ const moodEmojis: Record<string, string> = {
 
 export default function HomeScreen() {
   const { userData } = useUser();
+  const router = useRouter();
+
   const name = userData?.name || 'Friend';
   const mood = userData?.mood || 'Unknown';
   const emoji = moodEmojis[mood] || '🎵';
@@ -32,14 +35,13 @@ export default function HomeScreen() {
   const { tracks, loading } = useMoodSongs(mood);
 
   useEffect(() => {
-  if (!loading) {
-    console.log(`🎧 Found ${tracks.length} tracks for mood "${mood}":`);
-    tracks.forEach((track, index) => {
-      console.log(`${index + 1}. ${track.title} — ${track.author}`);
-    });
-  }
-}, [tracks, loading, mood]);
-
+    if (!loading) {
+      console.log(`🎧 Found ${tracks.length} tracks for mood "${mood}":`);
+      tracks.forEach((track, index) => {
+        console.log(`${index + 1}. ${track.title} — ${track.author}`);
+      });
+    }
+  }, [tracks, loading, mood]);
 
   if (loading) {
     return (
@@ -91,10 +93,28 @@ export default function HomeScreen() {
           fontSize: 18,
           textAlign: 'center',
           marginTop: 10,
+          marginBottom: 40,
         }}
       >
         {favoriteArtistsDisplay}
       </Text>
+
+      {/* End Session Button */}
+      <Pressable
+        onPress={() => router.push('/feedback')}
+        style={{
+          backgroundColor: '#fff',
+          paddingVertical: 12,
+          paddingHorizontal: 30,
+          borderRadius: 25,
+          alignSelf: 'center',
+        }}
+      >
+        <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>
+          End Session
+        </Text>
+      </Pressable>
+
     </ScrollView>
   );
 }

@@ -14,7 +14,7 @@ console.log('➡️ redirectUri used:', redirectUri);
 
 
 export default function LoginScreen() {
-  const { setToken } = useSpotify();
+  const { token, setToken } = useSpotify(); // <--- token dodany
   const router = useRouter();
 
   const discovery = {
@@ -31,6 +31,14 @@ export default function LoginScreen() {
     },
     discovery
   );
+
+  // ⏩ Automatyczne przejście dalej, jeśli token już istnieje
+  useEffect(() => {
+    if (token) {
+      console.log('🔐 Token already exists, skipping login screen...');
+      router.replace('/token');
+    }
+  }, [token]);
 
   useEffect(() => {
     if (response?.type === 'success') {
@@ -61,6 +69,7 @@ export default function LoginScreen() {
       })();
     }
   }, [response, request, setToken, router, discovery.tokenEndpoint]);
+
 
   return (
     <View style={styles.container}>

@@ -1,24 +1,37 @@
 import { View, Text, TextInput, Pressable } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { useRouter } from 'expo-router';
 
 export default function WelcomeScreen() {
-  const [name, setName] = useState('');
-  const [favoriteArtists, setFavoriteArtists] = useState('');
-  const { setUserData } = useUser();
+  const { userData, setUserData } = useUser();
   const router = useRouter();
 
-const handleSubmit = async () => {
+  const [name, setName] = useState('');
+  const [favoriteArtists, setFavoriteArtists] = useState('');
+
+  // 🔄 Wczytaj dane do formularza, jeśli istnieją
+  useEffect(() => {
+    if (userData) {
+      setName(userData.name ?? '');
+      setFavoriteArtists(
+        Array.isArray(userData.favoriteArtists)
+          ? userData.favoriteArtists.join(', ')
+          : ''
+      );
+    }
+  }, [userData]);
+
+  const handleSubmit = async () => {
     const artistsArray = favoriteArtists
-    .split(',')
-    .map((artist) => artist.trim())
-    .filter((artist) => artist.length > 0);
+      .split(',')
+      .map((artist) => artist.trim())
+      .filter((artist) => artist.length > 0);
 
     await setUserData({ name, favoriteArtists: artistsArray });
-    router.replace('/mood');
-};
 
+    router.replace('/mood');
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 30 }}>
@@ -26,7 +39,7 @@ const handleSubmit = async () => {
         Welcome to Moodfade!
       </Text>
       <Text style={{ color: '#ccc', fontSize: 16, marginBottom: 40, textAlign: 'center' }}>
-        Tell us something about you 🎉
+        {userData ? 'Edit your preferences 🎛️' : 'Tell us something about you 🎉'}
       </Text>
 
       <TextInput
@@ -68,7 +81,9 @@ const handleSubmit = async () => {
           borderRadius: 25,
         }}
       >
-        <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Continue</Text>
+        <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>
+          {userData ? 'Update & Continue' : 'Continue'}
+        </Text>
       </Pressable>
     </View>
   );
