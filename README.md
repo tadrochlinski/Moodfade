@@ -1,40 +1,47 @@
-# 🎵 Moodfade
+# Moodfade
 
 **Feel the rhythm of your mood.**  
-Moodfade is a mobile app built with **React Native (Expo)** that helps you generate mood-based Spotify playlists using your preferences and real-time mood selection. It's a minimalist, AI-assisted music companion that makes music work for your mind.
+Moodfade is a mobile app built with React Native (Expo) that helps you generate mood-based Spotify playlists using your preferences and real-time mood selection. It's a minimalist, AI-assisted music companion that makes music work for your mind.
 
 ---
 
-## ✨ Features
+## Features
 
-- 🔐 **Spotify Authentication** (OAuth)
-- 🎧 Generate playlists based on today's mood
-- ❤️ Add your favorite artists
-- 🔀 Mix tracks from Firebase and Spotify
-- 🎶 Automatically create and update the *Moodfade* playlist in your Spotify account
-- 🧠 Feedback system to reflect how the music made you feel
-
----
-
-## 🖼️ App Screenshots
-
-| Splash & Login | Spotify Auth | Preferences |
-|----------------|--------------|-------------|
-| ![splash](./screenshots/1000003760.jpg) | ![auth](./screenshots/1000003761.jpg) | ![prefs](./screenshots/1000003762.jpg) |
-
-| Mood Selection | Loading | Playlist Ready |
-|----------------|---------|----------------|
-| ![mood](./screenshots/1000003769.jpg) | ![loading](./screenshots/1000003765.jpg) | ![ready](./screenshots/1000003766.jpg) |
-
-| Feedback |
-|----------|
-| ![feedback](./screenshots/1000003768.jpg) |
-
-> Make sure to place these images inside a `screenshots/` folder in your project root.
+- Spotify Authentication (OAuth)
+- Generate playlists based on today's mood
+- Add your favorite artists
+- Mix tracks from Firebase and Spotify
+- Automatically create and update the *Moodfade* playlist in your Spotify account
+- Feedback system to reflect how the music made you feel
 
 ---
 
-## ⚙️ Installation
+## App Screenshots
+
+### Splash & Login
+<img src="./screenshots/1000003760.jpg" width="300"/>
+
+### Spotify Auth
+<img src="./screenshots/1000003761.jpg" width="300"/>
+
+### Preferences
+<img src="./screenshots/1000003762.jpg" width="300"/>
+
+### Mood Selection
+<img src="./screenshots/1000003769.jpg" width="300"/>
+
+### Loading
+<img src="./screenshots/1000003765.jpg" width="300"/>
+
+### Playlist Ready
+<img src="./screenshots/1000003766.jpg" width="300"/>
+
+### Feedback
+<img src="./screenshots/1000003768.jpg" width="300"/>
+
+---
+
+## Installation
 
 1. Clone the repository:
 
@@ -55,11 +62,11 @@ npm install
 npx expo start
 ```
 
-Scan the QR code using the **Expo Go** app on your phone.
+Scan the QR code using the Expo Go app on your phone.
 
 ---
 
-## 💡 How It Works
+## How It Works
 
 1. You log in with your Spotify account.
 2. You enter your name and favorite artists.
@@ -73,27 +80,23 @@ Scan the QR code using the **Expo Go** app on your phone.
 
 ---
 
-## 🛠️ Built With
+## Built With
 
-- [Expo + React Native](https://expo.dev/)
-- [Firebase Firestore](https://firebase.google.com/)
-- [Spotify Web API](https://developer.spotify.com/)
-- [AsyncStorage & SecureStore](https://docs.expo.dev/)
-- [React Navigation](https://reactnavigation.org/)
+- Expo + React Native
+- Firebase Firestore
+- Spotify Web API
+- AsyncStorage & SecureStore
+- React Navigation
 
 ---
 
-## 📄 License
+## License
 
 This project is in development and intended for educational and prototyping purposes. Not affiliated with Spotify.
 
 ---
 
-## 👨‍💻 Author
+## Author
 
-**Tadeusz Rochliński**  
+Tadeusz Rochliński  
 GitHub: [@tadrochlinski](https://github.com/tadrochlinski)
-
----
-
-> Found it helpful? Leave a ⭐ on the repo!
