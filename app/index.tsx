@@ -14,6 +14,7 @@ const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID!;
 const redirectUri = AuthSession.makeRedirectUri();
 
 console.log('➡️ redirectUri used:', redirectUri);
+console.log('➡️ client used:', clientId);
 
 export default function LoginScreen() {
   const { token, setToken } = useSpotify();
