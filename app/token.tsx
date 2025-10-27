@@ -5,7 +5,6 @@ export default function TokenScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    // Po zalogowaniu, przekieruj do welcome screen
     router.replace('/welcome');
   }, [router]);
 

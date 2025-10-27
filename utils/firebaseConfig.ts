@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -16,7 +17,9 @@ console.log('🧪 Firebase config loaded:', firebaseConfig);
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
+  experimentalForceLongPolling: true, 
 });
 
-export { db };
+const auth = getAuth(app);
+
+export { app, db, auth };

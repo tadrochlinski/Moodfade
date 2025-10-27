@@ -1,54 +1,78 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '../utils/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 
-type UserData = {
-  name: string;
-  favoriteArtists: string[];
+interface UserData {
+  name?: string;
+  favoriteArtists?: string[];
   mood?: string;
-};
+  spotifyConnected?: boolean;
+}
 
-
-type UserContextType = {
+interface UserContextType {
+  user: any;
   userData: UserData | null;
-  setUserData: (data: UserData) => void;
-};
+  reloadUserData: () => Promise<void>;
+}
 
-const UserContext = createContext<UserContextType>({
-  userData: null,
-  setUserData: () => {},
-});
+const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export const UserProvider = ({ children }: { children: React.ReactNode }) => {
-  const [userData, setUserDataState] = useState<UserData | null>(null);
+export const UserProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<any>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
 
   useEffect(() => {
-    const loadUserData = async () => {
-      const saved = await SecureStore.getItemAsync('userData');
-      if (saved) {
-        try {
-          setUserDataState(JSON.parse(saved));
-        } catch (err) {
-          console.error('Failed to parse user data:', err);
-        }
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        console.log(`👤 Logged in as ${firebaseUser.uid}, loading Firestore data...`);
+        await fetchUserData(firebaseUser.uid);
+      } else {
+        console.log('🚪 Logged out');
+        setUserData(null);
       }
-    };
-    loadUserData();
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const setUserData = async (data: UserData) => {
-    setUserDataState(data);
+  const reloadUserData = async () => {
+    if (user?.uid) {
+      console.log('🔁 Manual reload of user data triggered');
+      await fetchUserData(user.uid);
+    }
+  };
+
+  const fetchUserData = async (uid: string) => {
     try {
-      await SecureStore.setItemAsync('userData', JSON.stringify(data));
-    } catch (err) {
-      console.error('Failed to save user data:', err);
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        console.log('📄 Firestore user data loaded:', data);
+        setUserData(data as UserData);
+      } else {
+        console.warn('⚠️ No user data found in Firestore for UID:', uid);
+        setUserData(null);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching user data from Firestore:', error);
     }
   };
 
   return (
-    <UserContext.Provider value={{ userData, setUserData }}>
+    <UserContext.Provider value={{ user, userData, reloadUserData }}>
       {children}
     </UserContext.Provider>
   );
 };
 
-export const useUser = () => useContext(UserContext);
+export const useUser = (): UserContextType => {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error('useUser must be used within a UserProvider');
+  }
+  return context;
+};

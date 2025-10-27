@@ -95,7 +95,7 @@ export default function FeedbackScreen() {
           >
             {isSelected ? (
               <LinearGradient
-                colors={['#ff00c3', '#00d4ff']} // 🎨 Nowy gradient dopasowany do animacji
+                colors={['#ff00c3', '#00d4ff']}
                 start={[0, 0]}
                 end={[1, 1]}
                 style={{
