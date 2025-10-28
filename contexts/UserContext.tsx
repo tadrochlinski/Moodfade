@@ -6,7 +6,6 @@ import { doc, getDoc } from 'firebase/firestore';
 interface UserData {
   name?: string;
   favoriteArtists?: string[];
-  mood?: string;
   spotifyConnected?: boolean;
 }
 

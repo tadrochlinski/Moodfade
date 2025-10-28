@@ -35,7 +35,7 @@ export default function LoginScreen() {
           const userRef = doc(db, 'users', currentUser.uid);
           const userSnap = await getDoc(userRef);
           if (userSnap.exists()) {
-            router.replace('/mood');
+            router.replace('/(tabs)/home' as any);
           } else {
             router.replace('/welcome');
           }

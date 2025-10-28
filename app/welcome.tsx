@@ -105,7 +105,7 @@ export default function WelcomeScreen() {
         { name, favoriteArtists: artistsArray, spotifyConnected, updatedAt: new Date().toISOString() },
         { merge: true }
       );
-      router.replace('/mood');
+      router.replace('/(tabs)/home' as unknown as `/home`);
     } catch {
       Alert.alert('Error', 'Failed to save your profile.');
     } finally {
