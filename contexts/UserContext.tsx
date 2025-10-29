@@ -7,6 +7,7 @@ interface UserData {
   name?: string;
   favoriteArtists?: string[];
   spotifyConnected?: boolean;
+  photoBase64?: string; // 👈 zamiast photoURL
 }
 
 interface UserContextType {

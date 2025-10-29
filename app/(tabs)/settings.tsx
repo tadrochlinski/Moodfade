@@ -1,8 +1,23 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, Pressable, StyleSheet as RNStyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  Pressable,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  StyleSheet as RNStyleSheet,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import LottieView from 'lottie-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { updateDoc, doc } from 'firebase/firestore';
+import { db } from '../../utils/firebaseConfig';
 import { useUser } from '../../contexts/UserContext';
+import { useAuth } from '../../contexts/AuthProvider';
 import backgroundAnimation from '../../assets/lottie/Background.json';
 
 const moodOptions = [
@@ -15,34 +30,110 @@ const moodOptions = [
 ];
 
 export default function Settings() {
-  const { userData } = useUser();
-  const name = userData?.name || 'Friend';
+  const { user, userData, reloadUserData } = useUser();
+  const { logout } = useAuth();
+
+  // 🔹 Dane oryginalne z Firestore
+  const savedName = userData?.name ?? 'Friend';
+  const savedPhoto = userData?.photoBase64 ?? '';
+
+  // 🔹 Lokalne zmiany przed zapisem
+  const [editedName, setEditedName] = useState(savedName);
+  const [editedPhoto, setEditedPhoto] = useState(savedPhoto);
+
+  const [saving, setSaving] = useState(false);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    name
-  )}&background=444&color=fff&size=128`;
+  // 🔹 Placeholder avatar (tylko na podstawie zapisanych danych)
+  const avatarUrl =
+    savedPhoto && savedPhoto.length > 0
+      ? savedPhoto
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          savedName
+        )}&background=444&color=fff&size=128`;
+
+  // 🔹 Zdjęcie w edytorze (pokazuje podgląd edytowanego)
+  const previewUrl =
+    editedPhoto && editedPhoto.length > 0
+      ? editedPhoto
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          editedName
+        )}&background=444&color=fff&size=128`;
+
+  // Wybór zdjęcia + konwersja do Base64
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      const base64 = result.assets[0].base64;
+      const uri = `data:image/jpeg;base64,${base64}`;
+      setEditedPhoto(uri); // tylko lokalnie, nie w headerze
+    }
+  };
+
+  // Zapis profilu w Firestore
+  const saveProfile = async () => {
+    if (!user) return;
+    try {
+      setSaving(true);
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        name: editedName,
+        photoBase64: editedPhoto,
+      });
+      await reloadUserData();
+      Alert.alert('✅ Profile updated!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('❌ Error updating profile');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <LottieView source={backgroundAnimation} autoPlay loop style={RNStyleSheet.absoluteFill} />
 
+      {/* HEADER FLOATING AVATAR (tylko zapisane dane) */}
       <View style={styles.header}>
-        <Text style={styles.userName}>{name}</Text>
+        <Text style={styles.userName}>{savedName || 'Friend'}</Text>
         <Image source={{ uri: avatarUrl }} style={styles.avatar} />
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
+        {/* PROFILE SECTION */}
         <View style={styles.profileContainer}>
-          <Image source={{ uri: avatarUrl }} style={styles.avatarLarge} />
+          <Pressable onPress={pickImage}>
+            <Image source={{ uri: previewUrl }} style={styles.avatarLarge} />
+          </Pressable>
+
           <View style={{ alignItems: 'center' }}>
-            <Text style={styles.name}>{name}</Text>
-            <Pressable style={styles.editButton}>
-              <Text style={styles.editText}>Change Name / Photo</Text>
+            <TextInput
+              value={editedName}
+              onChangeText={setEditedName}
+              placeholder="Enter your name"
+              placeholderTextColor="#888"
+              style={styles.nameInput}
+            />
+
+            <Pressable onPress={saveProfile} style={styles.editButton}>
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.editText}>Save Name / Photo</Text>
+              )}
             </Pressable>
           </View>
         </View>
 
+        {/* ACCOUNT SECTION */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           <Pressable style={styles.whiteButton}>
@@ -56,6 +147,7 @@ export default function Settings() {
           </Pressable>
         </View>
 
+        {/* MOOD SELECTION */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Target Mood</Text>
           <Text style={styles.sectionSubtitle}>What kind of energy do you want to move toward?</Text>
@@ -65,11 +157,7 @@ export default function Settings() {
             return (
               <Pressable key={label} onPress={() => setSelectedMood(label)} style={{ marginBottom: 12 }}>
                 <LinearGradient
-                  colors={
-                    selected
-                      ? (colors as [string, string])
-                      : (['#111', '#111'] as [string, string])
-                  }
+                  colors={selected ? (colors as [string, string]) : (['#111', '#111'] as [string, string])}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[
@@ -86,6 +174,7 @@ export default function Settings() {
           })}
         </View>
 
+        {/* SPOTIFY */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Spotify Connection</Text>
           <Pressable style={styles.spotifyButton}>
@@ -100,9 +189,9 @@ export default function Settings() {
           </Pressable>
         </View>
 
-        {/* Logout */}
+        {/* LOGOUT */}
         <View style={styles.section}>
-          <Pressable style={styles.logoutButton}>
+          <Pressable onPress={logout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>Log Out</Text>
           </Pressable>
         </View>
@@ -136,7 +225,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#000',
   },
-
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -155,12 +243,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#444',
   },
-  name: {
+  nameInput: {
     color: '#fff',
     fontSize: 20,
     fontWeight: '600',
-    textShadowColor: '#000',
-    textShadowRadius: 6,
+    textAlign: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#555',
+    width: 200,
+    paddingVertical: 6,
   },
   editButton: {
     marginTop: 8,

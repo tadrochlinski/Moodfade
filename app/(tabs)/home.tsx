@@ -31,7 +31,7 @@ const moodOptions = [
 const feedbackOptions = ['Very Positive', 'Positive', 'Neutral', 'Negative', 'Very Negative'];
 
 export default function HomeScreen() {
-  const { userData } = useUser();
+  const { userData, reloadUserData } = useUser();
   const { token, refreshToken, loading: spotifyLoading } = useSpotify();
 
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
@@ -41,7 +41,16 @@ export default function HomeScreen() {
   const [selectedFeedback, setSelectedFeedback] = useState<string | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // 🔹 Dane użytkownika z kontekstu
   const name = userData?.name || 'Friend';
+  const photoBase64 = userData?.photoBase64 ?? '';
+  const avatarUrl =
+    photoBase64 && photoBase64.length > 0
+      ? photoBase64
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          name
+        )}&background=444&color=fff&size=128`;
 
   const rawArtists = Array.isArray(userData?.favoriteArtists)
     ? userData.favoriteArtists
@@ -56,6 +65,7 @@ export default function HomeScreen() {
 
   const { tracks, loading } = useMoodSongs(selectedMood);
 
+  // 🔹 Animacja wejścia
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -64,6 +74,7 @@ export default function HomeScreen() {
     }).start();
   }, []);
 
+  // 🔹 Synchronizacja playlisty
   useEffect(() => {
     let cancelled = false;
 
@@ -178,18 +189,15 @@ export default function HomeScreen() {
     };
   }, [selectedMood, token, loading, tracks, JSON.stringify(rawArtists)]);
 
+  // 🔹 Header reagujący na zmiany userData
   const Header = () => (
     <View style={styles.header}>
       <Text style={styles.userName}>{name}</Text>
-      <Image
-        source={{
-          uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=444&color=fff&size=128`,
-        }}
-        style={styles.avatar}
-      />
+      <Image source={{ uri: avatarUrl }} style={styles.avatar} />
     </View>
   );
 
+  // 🔹 Widok główny
   if (!selectedMood) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
@@ -226,10 +234,13 @@ export default function HomeScreen() {
     );
   }
 
+  const HeaderSpacer = () => <View style={{ height: 100 }} />;
+
   if (showFeedback) {
     return (
       <View style={styles.feedbackContainer}>
         <Header />
+        <HeaderSpacer />
         <Text style={styles.feedbackTitle}>How do you feel?</Text>
         <Text style={styles.feedbackSubtitle}>
           Let us know how the music made you feel 🎧

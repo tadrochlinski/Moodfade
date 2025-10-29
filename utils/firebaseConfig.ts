@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage'; // 👈 DODANE
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -17,9 +18,10 @@ console.log('🧪 Firebase config loaded:', firebaseConfig);
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true, 
+  experimentalForceLongPolling: true,
 });
 
 const auth = getAuth(app);
+const storage = getStorage(app); // 👈 DODANE
 
-export { app, db, auth };
+export { app, db, auth, storage }; // 👈 EXPORT z storage
