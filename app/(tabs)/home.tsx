@@ -183,11 +183,10 @@ export default function HomeScreen() {
       <Text style={styles.userName}>{name}</Text>
       <Image
         source={{
-            uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=444&color=fff&size=128`,
+          uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=444&color=fff&size=128`,
         }}
         style={styles.avatar}
-       />
-
+      />
     </View>
   );
 
@@ -334,9 +333,16 @@ const styles = StyleSheet.create({
   moodOption: { backgroundColor: 'rgba(0,0,0,0.45)', padding: 15, alignItems: 'center' },
   moodText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   loadingContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  header: { position: 'absolute', top: 50, right: 20, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 1 },
-  userName: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  avatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#444' },
+  header: { position: 'absolute', top: 50, right: 20, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 10 },
+  userName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  avatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#000' },
   content: { flexGrow: 1, padding: 30, justifyContent: 'center' },
   title: { color: '#fff', fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 30 },
   subtitle: { color: '#fff', fontSize: 20, textAlign: 'center', marginBottom: 20 },
