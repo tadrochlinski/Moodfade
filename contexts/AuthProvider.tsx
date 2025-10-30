@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, User } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  verifyBeforeUpdateEmail,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  sendEmailVerification,
+  User,
+} from 'firebase/auth';
 import { auth } from '../utils/firebaseConfig';
 
 type AuthContextType = {
@@ -8,6 +19,8 @@ type AuthContextType = {
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  changeEmail: (newEmail: string, currentPassword?: string) => Promise<void>;
+  changePassword: (newPassword: string, currentPassword?: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -21,12 +34,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setCurrentUser(user);
       setLoading(false);
     });
-
-    return unsubscribe; 
+    return unsubscribe;
   }, []);
 
+  // --- Create Account + Send Verification ---
   const signUp = async (email: string, password: string) => {
-    await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    if (userCredential.user) {
+      await sendEmailVerification(userCredential.user);
+      console.log(`📧 Verification email sent to ${email}`);
+    }
   };
 
   const signIn = async (email: string, password: string) => {
@@ -37,8 +54,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await signOut(auth);
   };
 
+  const reauthenticateIfNeeded = async (password?: string) => {
+    if (!auth.currentUser || !auth.currentUser.email) return;
+    if (!password) return;
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+  };
+
+  const changeEmail = async (newEmail: string, currentPassword?: string) => {
+    if (!auth.currentUser) throw new Error('No user logged in');
+    try {
+      await reauthenticateIfNeeded(currentPassword);
+      await verifyBeforeUpdateEmail(auth.currentUser, newEmail);
+      console.log(`📨 Verification email sent to ${newEmail}`);
+    } catch (error: any) {
+      console.error('Error changing email:', error);
+      throw error;
+    }
+  };
+
+  const changePassword = async (newPassword: string, currentPassword?: string) => {
+    if (!auth.currentUser) throw new Error('No user logged in');
+    try {
+      await reauthenticateIfNeeded(currentPassword);
+      await updatePassword(auth.currentUser, newPassword);
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, loading, signUp, signIn, logout }}>
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        loading,
+        signUp,
+        signIn,
+        logout,
+        changeEmail,
+        changePassword,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -46,8 +103,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

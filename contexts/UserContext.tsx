@@ -7,7 +7,8 @@ interface UserData {
   name?: string;
   favoriteArtists?: string[];
   spotifyConnected?: boolean;
-  photoBase64?: string; // 👈 zamiast photoURL
+  photoBase64?: string;
+  targetMood?: string;
 }
 
 interface UserContextType {
@@ -52,7 +53,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       if (userSnap.exists()) {
         const data = userSnap.data();
         console.log('📄 Firestore user data loaded:', data);
-        setUserData(data as UserData);
+
+        setUserData({
+          name: data.name ?? '',
+          favoriteArtists: data.favoriteArtists ?? [],
+          spotifyConnected: data.spotifyConnected ?? false,
+          photoBase64: data.photoBase64 ?? '',
+          targetMood: data.targetMood ?? '', 
+        });
       } else {
         console.warn('⚠️ No user data found in Firestore for UID:', uid);
         setUserData(null);
