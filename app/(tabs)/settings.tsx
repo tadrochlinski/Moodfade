@@ -131,20 +131,45 @@ export default function Settings() {
       : `https://ui-avatars.com/api/?name=${encodeURIComponent(userData?.name || 'Friend')}&background=444&color=fff&size=128`;
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-      base64: true,
-    });
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.6,
+    base64: true,
+  });
 
-    if (!result.canceled) {
-      const base64 = result.assets[0].base64;
+  if (!result.canceled) {
+    try {
+      let base64 = result.assets[0].base64;
+
+      // 🔹 Jeśli Expo nie zwróci base64, pobierzmy plik ręcznie i przekonwertujmy
+      if (!base64) {
+        const response = await fetch(result.assets[0].uri);
+        const blob = await response.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        base64 = btoa(String.fromCharCode(...bytes));
+      }
+
       const uri = `data:image/jpeg;base64,${base64}`;
       setPhotoURL(uri);
+
+      // 🔹 Zapisujemy natychmiast po wybraniu
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, { photoBase64: uri });
+        await reloadUserData();
+      }
+
+      Alert.alert('✅ Photo updated!');
+    } catch (err) {
+      console.error('Image conversion error:', err);
+      Alert.alert('❌ Error processing image');
     }
-  };
+  }
+};
+
 
   const saveProfile = async () => {
     if (!user) return;

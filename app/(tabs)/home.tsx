@@ -215,6 +215,7 @@ export default function HomeScreen() {
     }
   }
 
+  // === HEADER ===
   const Header = () => (
     <View style={styles.header}>
       <Text style={styles.userName}>{name}</Text>
@@ -258,7 +259,7 @@ export default function HomeScreen() {
     );
   }
 
-  // --- Feedback ---
+  // --- Feedback screen ---
   if (showFeedback) {
     return (
       <View style={styles.feedbackContainer}>
@@ -266,14 +267,25 @@ export default function HomeScreen() {
         <Header />
         <Text style={styles.feedbackTitle}>How do you feel?</Text>
         <Text style={styles.feedbackSubtitle}>Let us know how the music made you feel</Text>
-        {feedbackOptions.map((option) => {
+        {feedbackOptions.map(option => {
           const isSelected = selectedFeedback === option;
           return (
-            <Pressable key={option} onPress={() => setSelectedFeedback(option)} style={{ marginBottom: 15, width: '90%' }}>
+            <Pressable
+              key={option}
+              onPress={() => setSelectedFeedback(option)}
+              style={{ marginBottom: 15, width: '90%' }}
+            >
               {isSelected ? (
-                <LinearGradient colors={['#ff00c3', '#00d4ff']} start={[0, 0]} end={[1, 1]} style={{ padding: 2, borderRadius: 14 }}>
+                <LinearGradient
+                  colors={['#ff00c3', '#00d4ff']}
+                  start={[0, 0]}
+                  end={[1, 1]}
+                  style={{ padding: 2, borderRadius: 14 }}
+                >
                   <View style={styles.feedbackOption}>
-                    <Text style={[styles.feedbackOptionText, { fontWeight: 'bold' }]}>{option}</Text>
+                    <Text style={[styles.feedbackOptionText, { fontWeight: 'bold' }]}>
+                      {option}
+                    </Text>
                   </View>
                 </LinearGradient>
               ) : (
@@ -304,17 +316,11 @@ export default function HomeScreen() {
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
         <Header />
-        <ScrollView
-          contentContainerStyle={{
-            paddingTop: 100,
-            paddingBottom: 50,
-            alignItems: 'center',
-          }}
-        >
+        <ScrollView contentContainerStyle={{ paddingTop: 100, paddingBottom: 50, alignItems: 'center' }}>
           <Text style={styles.feedbackTitle}>Which tracks stood out?</Text>
           <Text style={styles.feedbackSubtitle}>Toggle to like or dislike</Text>
 
-          {tracks.slice(0, 8).map((track) => {
+          {tracks.slice(0, 8).map(track => {
             const key = `${track.title}__${track.author}`;
             const liked = likedTracks.includes(key);
             const disliked = dislikedTracks.includes(key);
@@ -335,25 +341,14 @@ export default function HomeScreen() {
                 {track.imageUrl ? (
                   <Image
                     source={{ uri: track.imageUrl }}
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 8,
-                      marginRight: 12,
-                    }}
+                    style={{ width: 52, height: 52, borderRadius: 8, marginRight: 12 }}
                   />
                 ) : (
                   <LinearGradient
                     colors={['#222', '#333']}
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 8,
-                      marginRight: 12,
-                    }}
+                    style={{ width: 52, height: 52, borderRadius: 8, marginRight: 12 }}
                   />
                 )}
-
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }} numberOfLines={1}>
                     {track.title}
@@ -362,7 +357,6 @@ export default function HomeScreen() {
                     {track.author}
                   </Text>
                 </View>
-
                 <Pressable
                   onPress={() => {
                     if (liked) {
@@ -377,7 +371,13 @@ export default function HomeScreen() {
                   }}
                 >
                   <LinearGradient
-                    colors={liked ? ['#00ff88', '#00c3ff'] : disliked ? ['#ff4d4d', '#cc0000'] : ['#333', '#444']}
+                    colors={
+                      liked
+                        ? ['#00ff88', '#00c3ff']
+                        : disliked
+                        ? ['#ff4d4d', '#cc0000']
+                        : ['#333', '#444']
+                    }
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={{
@@ -386,7 +386,11 @@ export default function HomeScreen() {
                       borderRadius: 13,
                       justifyContent: 'center',
                       padding: 3,
-                      alignItems: liked ? 'flex-end' : disliked ? 'flex-start' : 'center',
+                      alignItems: liked
+                        ? 'flex-end'
+                        : disliked
+                        ? 'flex-start'
+                        : 'center',
                     }}
                   >
                     <View
@@ -414,14 +418,13 @@ export default function HomeScreen() {
     );
   }
 
-  // --- Loading ---
+  // --- Loading (no End Session yet) ---
   if (spotifyLoading || loading || !playlistReady) {
     return (
       <View style={styles.loadingContainer}>
         <Header />
         <LottieView source={loadingAnimation} autoPlay loop style={{ width: 150, height: 150 }} />
         <Text style={{ color: '#ccc', marginTop: 20 }}>Preparing your playlist...</Text>
-        {/* 🔹 End Session hidden until playlistReady */}
       </View>
     );
   }
@@ -456,7 +459,6 @@ export default function HomeScreen() {
             Playlist not available yet.
           </Text>
         )}
-        {/* ✅ End Session visible only after playlist is ready */}
         <Pressable onPress={() => setShowFeedback(true)} style={styles.feedbackButton}>
           <Text style={styles.feedbackText}>End Session</Text>
         </Pressable>
@@ -467,12 +469,18 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   fullScreen: { flex: 1, backgroundColor: '#000' },
-  moodPrompt: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 30, textAlign: 'center' },
+  moodPrompt: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
   moodOption: { backgroundColor: 'rgba(0,0,0,0.45)', padding: 15, alignItems: 'center' },
   moodText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   loadingContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
   header: { position: 'absolute', top: 50, right: 20, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 10 },
-  userName: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  userName: { color: '#fff', fontSize: 16, fontWeight: '600', textShadowColor: '#000', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
   avatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#000' },
   content: { flexGrow: 1, padding: 30, justifyContent: 'center' },
   title: { color: '#fff', fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 20 },
