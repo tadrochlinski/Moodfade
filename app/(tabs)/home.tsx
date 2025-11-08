@@ -319,8 +319,6 @@ export default function HomeScreen() {
             const liked = likedTracks.includes(key);
             const disliked = dislikedTracks.includes(key);
 
-            {console.log('🎨 render track', track.title, track.imageUrl)}
-
             return (
               <View
                 key={key}
@@ -423,12 +421,7 @@ export default function HomeScreen() {
         <Header />
         <LottieView source={loadingAnimation} autoPlay loop style={{ width: 150, height: 150 }} />
         <Text style={{ color: '#ccc', marginTop: 20 }}>Preparing your playlist...</Text>
-        <Pressable
-          onPress={() => setShowFeedback(true)}
-          style={[styles.feedbackButton, { marginTop: 40 }]}
-        >
-          <Text style={styles.feedbackText}>End Session</Text>
-        </Pressable>
+        {/* 🔹 End Session hidden until playlistReady */}
       </View>
     );
   }
@@ -463,6 +456,7 @@ export default function HomeScreen() {
             Playlist not available yet.
           </Text>
         )}
+        {/* ✅ End Session visible only after playlist is ready */}
         <Pressable onPress={() => setShowFeedback(true)} style={styles.feedbackButton}>
           <Text style={styles.feedbackText}>End Session</Text>
         </Pressable>
