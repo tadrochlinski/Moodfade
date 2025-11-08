@@ -16,6 +16,8 @@ import * as SecureStore from 'expo-secure-store';
 import { useUser } from '../../contexts/UserContext';
 import { useSpotify } from '../../contexts/SpotifyContext';
 import useMoodSongs from '../../hooks/useMoodSongs';
+import { db, auth } from '../../utils/firebaseConfig';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import loadingAnimation from '../../assets/lottie/loading.json';
 import backgroundAnimation from '../../assets/lottie/Background.json';
 
@@ -31,7 +33,7 @@ const moodOptions = [
 const feedbackOptions = ['Very Positive', 'Positive', 'Neutral', 'Negative', 'Very Negative'];
 
 export default function HomeScreen() {
-  const { userData, reloadUserData } = useUser();
+  const { userData } = useUser();
   const { token, refreshToken, loading: spotifyLoading } = useSpotify();
 
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
@@ -39,10 +41,12 @@ export default function HomeScreen() {
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<string | null>(null);
+  const [showTrackFeedback, setShowTrackFeedback] = useState(false);
+  const [likedTracks, setLikedTracks] = useState<string[]>([]);
+  const [dislikedTracks, setDislikedTracks] = useState<string[]>([]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // 🔹 Dane użytkownika z kontekstu
   const name = userData?.name || 'Friend';
   const photoBase64 = userData?.photoBase64 ?? '';
   const avatarUrl =
@@ -58,14 +62,8 @@ export default function HomeScreen() {
     ? [userData.favoriteArtists]
     : [];
 
-  const favoriteArtistsDisplay =
-    rawArtists.length > 2
-      ? `${rawArtists.slice(0, 2).join(', ')} and more`
-      : rawArtists.join(', ') || 'N/A';
-
   const { tracks, loading } = useMoodSongs(selectedMood);
 
-  // 🔹 Animacja wejścia
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -74,15 +72,20 @@ export default function HomeScreen() {
     }).start();
   }, []);
 
-  // 🔹 Synchronizacja playlisty
+  useEffect(() => {
+    if (showTrackFeedback && tracks.length > 0) {
+      const initialLiked = tracks.slice(0, 8).map(t => `${t.title}__${t.author}`);
+      setLikedTracks(initialLiked);
+    }
+  }, [showTrackFeedback, tracks]);
+
   useEffect(() => {
     let cancelled = false;
 
     async function syncPlaylist() {
       if (!selectedMood || !token || loading || !tracks || tracks.length === 0) return;
-      setPlaylistReady(false);
-
       let validToken = token;
+
       try {
         const testRes = await fetch('https://api.spotify.com/v1/me', {
           headers: { Authorization: `Bearer ${validToken}` },
@@ -131,9 +134,11 @@ export default function HomeScreen() {
           foundPlaylistUrl = created.external_urls?.spotify;
         }
 
-        const uris: string[] = [];
+        if (foundPlaylistUrl) setPlaylistUrl(foundPlaylistUrl);
 
+        const uris: string[] = [];
         const fav = rawArtists.filter((a) => a && a.length > 0);
+
         for (const artist of fav) {
           const res = await fetch(
             `https://api.spotify.com/v1/search?q=artist:${encodeURIComponent(
@@ -173,12 +178,8 @@ export default function HomeScreen() {
           });
         }
 
-        if (!cancelled) {
-          setPlaylistUrl(foundPlaylistUrl || null);
-          setPlaylistReady(true);
-        }
-      } catch (err) {
-        console.error('❌ Error syncing playlist:', err);
+        setPlaylistReady(true);
+      } catch {
         if (!cancelled) setPlaylistReady(false);
       }
     }
@@ -187,9 +188,33 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [selectedMood, token, loading, tracks, JSON.stringify(rawArtists)]);
+  }, [selectedMood, token, loading, tracks]);
 
-  // 🔹 Header reagujący na zmiany userData
+  async function saveSession() {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return Alert.alert('Error', 'User not authenticated.');
+
+    try {
+      await addDoc(collection(db, 'sessions'), {
+        userId: uid,
+        mood: selectedMood,
+        feedback: selectedFeedback,
+        likedTracks,
+        dislikedTracks,
+        createdAt: serverTimestamp(),
+      });
+      Alert.alert('Session saved', 'Thank you for your feedback!');
+      setSelectedMood(null);
+      setSelectedFeedback(null);
+      setLikedTracks([]);
+      setDislikedTracks([]);
+      setShowFeedback(false);
+      setShowTrackFeedback(false);
+    } catch {
+      Alert.alert('Error', 'Could not save session.');
+    }
+  }
+
   const Header = () => (
     <View style={styles.header}>
       <Text style={styles.userName}>{name}</Text>
@@ -197,7 +222,7 @@ export default function HomeScreen() {
     </View>
   );
 
-  // 🔹 Widok główny
+  // --- UI ---
   if (!selectedMood) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
@@ -211,7 +236,6 @@ export default function HomeScreen() {
               onPress={() => {
                 setSelectedMood(label);
                 setPlaylistReady(false);
-                setPlaylistUrl(null);
               }}
               style={{ marginBottom: 15 }}
             >
@@ -234,36 +258,22 @@ export default function HomeScreen() {
     );
   }
 
-  const HeaderSpacer = () => <View style={{ height: 100 }} />;
-
+  // --- Feedback ---
   if (showFeedback) {
     return (
       <View style={styles.feedbackContainer}>
+        <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
         <Header />
-        <HeaderSpacer />
         <Text style={styles.feedbackTitle}>How do you feel?</Text>
-        <Text style={styles.feedbackSubtitle}>
-          Let us know how the music made you feel 🎧
-        </Text>
+        <Text style={styles.feedbackSubtitle}>Let us know how the music made you feel</Text>
         {feedbackOptions.map((option) => {
           const isSelected = selectedFeedback === option;
           return (
-            <Pressable
-              key={option}
-              onPress={() => setSelectedFeedback(option)}
-              style={{ marginBottom: 15, width: '100%' }}
-            >
+            <Pressable key={option} onPress={() => setSelectedFeedback(option)} style={{ marginBottom: 15, width: '90%' }}>
               {isSelected ? (
-                <LinearGradient
-                  colors={['#ff00c3', '#00d4ff']}
-                  start={[0, 0]}
-                  end={[1, 1]}
-                  style={{ padding: 2, borderRadius: 12 }}
-                >
+                <LinearGradient colors={['#ff00c3', '#00d4ff']} start={[0, 0]} end={[1, 1]} style={{ padding: 2, borderRadius: 14 }}>
                   <View style={styles.feedbackOption}>
-                    <Text style={[styles.feedbackOptionText, { fontWeight: 'bold' }]}>
-                      {option}
-                    </Text>
+                    <Text style={[styles.feedbackOptionText, { fontWeight: 'bold' }]}>{option}</Text>
                   </View>
                 </LinearGradient>
               ) : (
@@ -277,43 +287,166 @@ export default function HomeScreen() {
         <Pressable
           onPress={() => {
             if (!selectedFeedback) return Alert.alert('Please select how you feel.');
-            Alert.alert('Thank you!', `Feedback: ${selectedFeedback}`);
             setShowFeedback(false);
-            setSelectedFeedback(null);
-            setSelectedMood(null);
-            setPlaylistReady(false);
-            setPlaylistUrl(null);
+            setShowTrackFeedback(true);
           }}
-          style={styles.feedbackButton}
+          style={[styles.feedbackButton, { width: '70%', marginTop: 30 }]}
         >
-          <Text style={styles.feedbackText}>Submit Feedback</Text>
+          <Text style={styles.feedbackText}>Next</Text>
         </Pressable>
       </View>
     );
   }
 
+  // --- Track feedback ---
+  if (showTrackFeedback) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
+        <Header />
+        <ScrollView
+          contentContainerStyle={{
+            paddingTop: 100,
+            paddingBottom: 50,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={styles.feedbackTitle}>Which tracks stood out?</Text>
+          <Text style={styles.feedbackSubtitle}>Toggle to like or dislike</Text>
+
+          {tracks.slice(0, 8).map((track) => {
+            const key = `${track.title}__${track.author}`;
+            const liked = likedTracks.includes(key);
+            const disliked = dislikedTracks.includes(key);
+
+            {console.log('🎨 render track', track.title, track.imageUrl)}
+
+            return (
+              <View
+                key={key}
+                style={{
+                  width: '90%',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#111',
+                  borderRadius: 16,
+                  padding: 12,
+                  marginVertical: 8,
+                }}
+              >
+                {track.imageUrl ? (
+                  <Image
+                    source={{ uri: track.imageUrl }}
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 8,
+                      marginRight: 12,
+                    }}
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={['#222', '#333']}
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 8,
+                      marginRight: 12,
+                    }}
+                  />
+                )}
+
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }} numberOfLines={1}>
+                    {track.title}
+                  </Text>
+                  <Text style={{ color: '#aaa', fontSize: 14 }} numberOfLines={1}>
+                    {track.author}
+                  </Text>
+                </View>
+
+                <Pressable
+                  onPress={() => {
+                    if (liked) {
+                      setLikedTracks(prev => prev.filter(t => t !== key));
+                      setDislikedTracks(prev => [...prev, key]);
+                    } else if (disliked) {
+                      setDislikedTracks(prev => prev.filter(t => t !== key));
+                      setLikedTracks(prev => [...prev, key]);
+                    } else {
+                      setLikedTracks(prev => [...prev, key]);
+                    }
+                  }}
+                >
+                  <LinearGradient
+                    colors={liked ? ['#00ff88', '#00c3ff'] : disliked ? ['#ff4d4d', '#cc0000'] : ['#333', '#444']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{
+                      width: 50,
+                      height: 26,
+                      borderRadius: 13,
+                      justifyContent: 'center',
+                      padding: 3,
+                      alignItems: liked ? 'flex-end' : disliked ? 'flex-start' : 'center',
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        backgroundColor: '#000',
+                      }}
+                    />
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            );
+          })}
+
+          <Pressable
+            onPress={saveSession}
+            style={[styles.feedbackButton, { width: '70%', marginTop: 30 }]}
+          >
+            <Text style={styles.feedbackText}>Save Session</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // --- Loading ---
   if (spotifyLoading || loading || !playlistReady) {
     return (
       <View style={styles.loadingContainer}>
         <Header />
         <LottieView source={loadingAnimation} autoPlay loop style={{ width: 150, height: 150 }} />
         <Text style={{ color: '#ccc', marginTop: 20 }}>Preparing your playlist...</Text>
-        <Pressable onPress={() => setShowFeedback(true)} style={[styles.feedbackButton, { marginTop: 40 }]}>
+        <Pressable
+          onPress={() => setShowFeedback(true)}
+          style={[styles.feedbackButton, { marginTop: 40 }]}
+        >
           <Text style={styles.feedbackText}>End Session</Text>
         </Pressable>
       </View>
     );
   }
 
+  // --- Playlist ready ---
   return (
     <Animated.View style={[styles.fullScreen, { opacity: fadeAnim }]}>
       <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
       <Header />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{name}, your playlist is ready! 🎧</Text>
+        <Text style={styles.title}>{name}, your playlist is ready!</Text>
         <Text style={styles.subtitle}>{selectedMood}</Text>
-        <Text style={styles.label}>With your favorite artists:</Text>
-        <Text style={styles.artists}>{favoriteArtistsDisplay}</Text>
+        <Text style={styles.label}>Featuring:</Text>
+        <Text style={styles.artists}>
+          {rawArtists.length > 0
+            ? `${rawArtists[0]}${rawArtists.length > 1 ? ' and more' : ''}`
+            : 'your favorite artists'}
+        </Text>
         {playlistUrl ? (
           <Pressable onPress={() => Linking.openURL(playlistUrl)} style={{ marginBottom: 20 }}>
             <LinearGradient
@@ -345,27 +478,20 @@ const styles = StyleSheet.create({
   moodText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   loadingContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
   header: { position: 'absolute', top: 50, right: 20, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 10 },
-  userName: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    textShadowColor: '#000',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
+  userName: { color: '#fff', fontSize: 16, fontWeight: '600' },
   avatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#000' },
   content: { flexGrow: 1, padding: 30, justifyContent: 'center' },
-  title: { color: '#fff', fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 30 },
+  title: { color: '#fff', fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 20 },
   subtitle: { color: '#fff', fontSize: 20, textAlign: 'center', marginBottom: 20 },
   label: { color: '#ccc', fontSize: 16, textAlign: 'center' },
   artists: { color: '#fff', fontSize: 18, textAlign: 'center', marginTop: 10, marginBottom: 40 },
-  gradientButton: { paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, alignSelf: 'center' },
-  gradientButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  feedbackButton: { backgroundColor: '#fff', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, alignSelf: 'center' },
-  feedbackText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
+  gradientButton: { paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
+  gradientButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16, textAlign: 'center' },
+  feedbackButton: { backgroundColor: '#fff', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
+  feedbackText: { color: '#000', fontWeight: 'bold', fontSize: 16, textAlign: 'center' },
   feedbackContainer: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 30 },
-  feedbackTitle: { color: '#fff', fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
-  feedbackSubtitle: { color: '#ccc', fontSize: 16, marginBottom: 30, textAlign: 'center' },
-  feedbackOption: { backgroundColor: '#111', padding: 15, borderRadius: 10, width: '100%', alignItems: 'center' },
+  feedbackTitle: { color: '#fff', fontSize: 26, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
+  feedbackSubtitle: { color: '#ccc', fontSize: 15, marginBottom: 25, textAlign: 'center' },
+  feedbackOption: { backgroundColor: '#111', padding: 15, borderRadius: 14, alignItems: 'center' },
   feedbackOptionText: { color: '#fff', fontSize: 16 },
 });
