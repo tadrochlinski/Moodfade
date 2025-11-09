@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '../utils/firebaseConfig';
-import { doc, getDoc } from 'firebase/firestore';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "../utils/firebaseConfig";
+import { doc, onSnapshot, getDoc } from "firebase/firestore";
 
 interface UserData {
   name?: string;
@@ -24,49 +24,61 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [userData, setUserData] = useState<UserData | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    // 🔹 Reaguje na zmianę stanu logowania
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
+
       if (firebaseUser) {
-        console.log(`👤 Logged in as ${firebaseUser.uid}, loading Firestore data...`);
-        await fetchUserData(firebaseUser.uid);
+        console.log(`👤 Logged in as ${firebaseUser.uid}`);
+        subscribeToUserDoc(firebaseUser.uid);
       } else {
-        console.log('🚪 Logged out');
+        console.log("🚪 Logged out");
         setUserData(null);
       }
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
-  const reloadUserData = async () => {
-    if (user?.uid) {
-      console.log('🔁 Manual reload of user data triggered');
-      await fetchUserData(user.uid);
-    }
-  };
-
-  const fetchUserData = async (uid: string) => {
-    try {
-      const userRef = doc(db, 'users', uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        console.log('📄 Firestore user data loaded:', data);
-
+  // 🔥 Real-time subskrypcja Firestore user doc
+  const subscribeToUserDoc = (uid: string) => {
+    const ref = doc(db, "users", uid);
+    return onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        console.log("📡 Firestore user doc updated:", data);
         setUserData({
-          name: data.name ?? '',
+          name: data.name ?? "",
           favoriteArtists: data.favoriteArtists ?? [],
           spotifyConnected: data.spotifyConnected ?? false,
-          photoBase64: data.photoBase64 ?? '',
-          targetMood: data.targetMood ?? '', 
+          photoBase64: data.photoBase64 ?? "",
+          targetMood: data.targetMood ?? "",
         });
       } else {
-        console.warn('⚠️ No user data found in Firestore for UID:', uid);
+        console.warn("⚠️ User doc missing in Firestore for UID:", uid);
         setUserData(null);
       }
+    });
+  };
+
+  const reloadUserData = async () => {
+    if (!user?.uid) return;
+    try {
+      const ref = doc(db, "users", user.uid);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const data = snap.data();
+        console.log("🔁 Manual reload user data:", data);
+        setUserData({
+          name: data.name ?? "",
+          favoriteArtists: data.favoriteArtists ?? [],
+          spotifyConnected: data.spotifyConnected ?? false,
+          photoBase64: data.photoBase64 ?? "",
+          targetMood: data.targetMood ?? "",
+        });
+      }
     } catch (error) {
-      console.error('❌ Error fetching user data from Firestore:', error);
+      console.error("❌ Error reloading user data:", error);
     }
   };
 
@@ -80,7 +92,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 export const useUser = (): UserContextType => {
   const context = useContext(UserContext);
   if (!context) {
-    throw new Error('useUser must be used within a UserProvider');
+    throw new Error("useUser must be used within a UserProvider");
   }
   return context;
 };
