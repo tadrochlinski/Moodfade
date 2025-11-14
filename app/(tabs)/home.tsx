@@ -37,6 +37,7 @@ export default function HomeScreen() {
   const { token, refreshToken, loading: spotifyLoading } = useSpotify();
 
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [listeningMode, setListeningMode] = useState<'current' | 'regulation' | null>(null); // 🔸 NEW
   const [playlistReady, setPlaylistReady] = useState(false);
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -49,6 +50,7 @@ export default function HomeScreen() {
 
   const name = userData?.name || 'Friend';
   const photoBase64 = userData?.photoBase64 ?? '';
+  const targetMood = userData?.targetMood ?? null;
   const avatarUrl =
     photoBase64 && photoBase64.length > 0
       ? photoBase64
@@ -62,7 +64,7 @@ export default function HomeScreen() {
     ? [userData.favoriteArtists]
     : [];
 
-  const { tracks, loading } = useMoodSongs(selectedMood);
+  const { tracks, loading } = useMoodSongs(selectedMood, targetMood, listeningMode ?? undefined);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -198,6 +200,8 @@ export default function HomeScreen() {
       await addDoc(collection(db, 'sessions'), {
         userId: uid,
         mood: selectedMood,
+        mode: listeningMode, 
+        targetMood: targetMood ?? null,
         feedback: selectedFeedback,
         likedTracks,
         dislikedTracks,
@@ -205,6 +209,7 @@ export default function HomeScreen() {
       });
       Alert.alert('Session saved', 'Thank you for your feedback!');
       setSelectedMood(null);
+      setListeningMode(null);
       setSelectedFeedback(null);
       setLikedTracks([]);
       setDislikedTracks([]);
@@ -215,13 +220,113 @@ export default function HomeScreen() {
     }
   }
 
-  // === HEADER ===
   const Header = () => (
     <View style={styles.header}>
       <Text style={styles.userName}>{name}</Text>
       <Image source={{ uri: avatarUrl }} style={styles.avatar} />
     </View>
   );
+
+  if (!selectedMood) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
+        <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
+        <Header />
+        <View style={{ padding: 20 }}>
+          <Text style={styles.moodPrompt}>What's your mood today?</Text>
+          {moodOptions.map(({ label, emoji, colors }) => (
+            <Pressable
+              key={label}
+              onPress={() => {
+                if (label === targetMood) {
+                  setSelectedMood(label);
+                  setListeningMode('current');
+                  setPlaylistReady(false);
+                } else {
+                  setSelectedMood(label);
+                  setPlaylistReady(false);
+                }
+              }}
+
+              style={{ marginBottom: 15, }}
+            >
+              <LinearGradient
+                colors={colors as [string, string]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ borderRadius: 12,  overflow: 'hidden', }}
+              >
+                <View style={styles.moodOption}>
+                  <Text style={styles.moodText}>
+                    {emoji} {label}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  if (selectedMood && !listeningMode && targetMood) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
+        <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
+        <Header />
+
+        <View style={{ alignItems: 'center', paddingHorizontal: 25 }}>
+          <Text style={styles.modeTitle}>Let's shape your mood today</Text>
+
+          <View
+            style={{
+              backgroundColor: 'rgba(0,0,0,0.65)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.2)',
+              borderRadius: 22,
+              paddingVertical: 28,
+              paddingHorizontal: 20,
+              width: '90%',
+              alignItems: 'center',
+              marginTop: 50,
+              shadowColor: '#000',
+              shadowOpacity: 0.5,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+            }}
+          >
+            <Text style={styles.modePrompt}>
+              Do you want to stay in your current mood or work towards your target mood?
+            </Text>
+
+            <Pressable
+              onPress={() => setListeningMode('current')}
+              style={[styles.modeButtonWhite, { marginTop: 25 }]}
+            >
+              <Text style={styles.modeButtonWhiteText}>Stay in this mood</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setListeningMode('regulation')}
+              style={[styles.modeButton, { marginTop: 15 }]}
+            >
+              <LinearGradient
+                colors={['#7B78FF', '#00C6FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modeButtonInner}
+              >
+                <Text style={[styles.modeButtonText, { color: '#fff' }]}>
+                  Work towards my target mood
+                </Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
 
   // --- UI ---
   if (!selectedMood) {
@@ -260,55 +365,74 @@ export default function HomeScreen() {
   }
 
   // --- Feedback screen ---
-  if (showFeedback) {
-    return (
-      <View style={styles.feedbackContainer}>
-        <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
-        <Header />
-        <Text style={styles.feedbackTitle}>How do you feel?</Text>
-        <Text style={styles.feedbackSubtitle}>Let us know how the music made you feel</Text>
+if (showFeedback) {
+  return (
+    <View style={styles.feedbackContainer}>
+      <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
+      <Header />
+
+      <Text style={styles.feedbackTitle}>How do you feel?</Text>
+      <Text style={styles.feedbackSubtitle}>Let us know how the music made you feel</Text>
+
+      <View style={{ width: '90%', alignItems: 'center', marginTop: 10 }}>
         {feedbackOptions.map(option => {
           const isSelected = selectedFeedback === option;
           return (
             <Pressable
               key={option}
               onPress={() => setSelectedFeedback(option)}
-              style={{ marginBottom: 15, width: '90%' }}
+              style={[
+                styles.feedbackOptionCard,
+                isSelected && { borderColor: '#00C6FF', borderWidth: 2 },
+              ]}
             >
-              {isSelected ? (
-                <LinearGradient
-                  colors={['#ff00c3', '#00d4ff']}
-                  start={[0, 0]}
-                  end={[1, 1]}
-                  style={{ padding: 2, borderRadius: 14 }}
-                >
-                  <View style={styles.feedbackOption}>
-                    <Text style={[styles.feedbackOptionText, { fontWeight: 'bold' }]}>
-                      {option}
-                    </Text>
-                  </View>
-                </LinearGradient>
-              ) : (
-                <View style={styles.feedbackOption}>
-                  <Text style={styles.feedbackOptionText}>{option}</Text>
-                </View>
-              )}
+              <Text
+                style={[
+                  styles.feedbackOptionText,
+                  isSelected && { color: '#00C6FF', fontWeight: '700' },
+                ]}
+              >
+                {option}
+              </Text>
             </Pressable>
           );
         })}
+      </View>
+
+      {/* Buttons */}
+      <View style={styles.actionButtons}>
         <Pressable
           onPress={() => {
             if (!selectedFeedback) return Alert.alert('Please select how you feel.');
             setShowFeedback(false);
             setShowTrackFeedback(true);
           }}
-          style={[styles.feedbackButton, { width: '70%', marginTop: 30 }]}
+          style={styles.buttonWrapper}
         >
-          <Text style={styles.feedbackText}>Next</Text>
+          <LinearGradient
+            colors={['#7B78FF', '#00C6FF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientButtonUnified}
+          >
+            <Text style={styles.gradientButtonText}>Next</Text>
+          </LinearGradient>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setShowFeedback(false);
+            setSelectedFeedback(null);
+          }}
+          style={styles.whiteButtonUnified}
+        >
+          <Text style={styles.whiteButtonText}>Cancel</Text>
         </Pressable>
       </View>
-    );
-  }
+    </View>
+  );
+}
+
 
   // --- Track feedback ---
   if (showTrackFeedback) {
@@ -332,10 +456,12 @@ export default function HomeScreen() {
                   width: '90%',
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: '#111',
+                  backgroundColor: 'rgba(0,0,0,0.65)',
                   borderRadius: 16,
                   padding: 12,
                   marginVertical: 8,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.2)",
                 }}
               >
                 {track.imageUrl ? (
@@ -418,53 +544,93 @@ export default function HomeScreen() {
     );
   }
 
-  // --- Loading (no End Session yet) ---
+  // --- LOADING ---
   if (spotifyLoading || loading || !playlistReady) {
     return (
       <View style={styles.loadingContainer}>
         <Header />
         <LottieView source={loadingAnimation} autoPlay loop style={{ width: 150, height: 150 }} />
         <Text style={{ color: '#ccc', marginTop: 20 }}>Preparing your playlist...</Text>
+
+        {listeningMode === 'regulation' && targetMood && selectedMood && (
+          <Text style={{ color: '#ccc', marginTop: 20, textAlign: 'center', paddingHorizontal: 20 }}>
+            We’ll help you shift from feeling {selectedMood.toLowerCase()} to feeling more {targetMood.toLowerCase()}.
+            Music will guide you there gently. Just listen and let it flow.
+          </Text>
+        )}
       </View>
     );
   }
 
   // --- Playlist ready ---
-  return (
-    <Animated.View style={[styles.fullScreen, { opacity: fadeAnim }]}>
-      <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
-      <Header />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{name}, your playlist is ready!</Text>
-        <Text style={styles.subtitle}>{selectedMood}</Text>
+return (
+  <Animated.View style={[styles.fullScreen, { opacity: fadeAnim }]}>
+    <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
+    <Header />
+
+    <ScrollView contentContainerStyle={styles.content}>
+      <View
+        style={{
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.2)',
+          borderRadius: 22,
+          paddingVertical: 40,
+          paddingHorizontal: 25,
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOpacity: 0.5,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 4 },
+        }}
+      >
+        <Text style={styles.readyTitle}>{name}, your playlist is ready</Text>
+
+        {listeningMode === 'regulation' && targetMood && (
+          <Text style={styles.readyHint}>
+            Helping you move from <Text style={styles.highlight}>{selectedMood}</Text>{' '}
+            to <Text style={styles.highlight}>{targetMood}</Text>
+          </Text>
+        )}
+
+        <Text style={styles.readyMood}>{selectedMood}</Text>
+
         <Text style={styles.label}>Featuring:</Text>
         <Text style={styles.artists}>
           {rawArtists.length > 0
             ? `${rawArtists[0]}${rawArtists.length > 1 ? ' and more' : ''}`
             : 'your favorite artists'}
         </Text>
-        {playlistUrl ? (
-          <Pressable onPress={() => Linking.openURL(playlistUrl)} style={{ marginBottom: 20 }}>
-            <LinearGradient
-              colors={['#FF6EC4', '#7873F5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
-            >
-              <Text style={styles.gradientButtonText}>Open in Spotify</Text>
-            </LinearGradient>
-          </Pressable>
-        ) : (
-          <Text style={{ color: '#888', textAlign: 'center', marginBottom: 20 }}>
-            Playlist not available yet.
-          </Text>
-        )}
-        <Pressable onPress={() => setShowFeedback(true)} style={styles.feedbackButton}>
-          <Text style={styles.feedbackText}>End Session</Text>
-        </Pressable>
-      </ScrollView>
-    </Animated.View>
-  );
+
+        {/* Buttons */}
+<View style={styles.actionButtons}>
+  {playlistUrl ? (
+    <Pressable onPress={() => Linking.openURL(playlistUrl)} style={styles.buttonWrapper}>
+      <LinearGradient
+        colors={['#7B78FF', '#00C6FF']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.gradientButtonUnified}
+      >
+        <Text style={styles.gradientButtonText}>Open in Spotify</Text>
+      </LinearGradient>
+    </Pressable>
+    ) : (
+      <Text style={{ color: '#888', textAlign: 'center', marginTop: 10 }}>
+        Playlist not available yet.
+      </Text>
+    )}
+
+    <Pressable onPress={() => setShowFeedback(true)} style={styles.whiteButtonUnified}>
+      <Text style={styles.whiteButtonText}>End Session</Text>
+    </Pressable>
+     </View>
+
+      </View>
+    </ScrollView>
+  </Animated.View>
+);
+
 }
 
 const styles = StyleSheet.create({
@@ -496,4 +662,169 @@ const styles = StyleSheet.create({
   feedbackSubtitle: { color: '#ccc', fontSize: 15, marginBottom: 25, textAlign: 'center' },
   feedbackOption: { backgroundColor: '#111', padding: 15, borderRadius: 14, alignItems: 'center' },
   feedbackOptionText: { color: '#fff', fontSize: 16 },
+  modeTitle: {
+      color: '#fff',
+      fontSize: 22,
+      fontWeight: '700',
+      textAlign: 'center',
+      marginTop: 60,
+    },
+    modePrompt: {
+      color: '#e0e0e0',
+      fontSize: 16,
+      lineHeight: 22,
+      textAlign: 'center',
+      paddingHorizontal: 10,
+    },
+    modeButton: {
+      width: '90%',
+      borderRadius: 16,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+    },
+    modeButtonInner: {
+      width: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 15,
+      borderRadius: 50,
+    },
+    modeButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#fff',
+      textAlign: 'center',
+    },
+    modeHint: {
+      color: '#888',
+      fontSize: 14,
+      textAlign: 'center',
+      marginTop: 25,
+    },
+    readyTitle: {
+  color: '#fff',
+  fontSize: 20,
+  fontWeight: '700',
+  textAlign: 'center',
+  marginBottom: 10,
+},
+readyHint: {
+  color: '#ccc',
+  textAlign: 'center',
+  fontSize: 14,
+  lineHeight: 20,
+  marginBottom: 20,
+  paddingHorizontal: 10,
+},
+highlight: {
+  color: '#7B78FF',
+  fontWeight: '600',
+},
+readyMood: {
+  color: '#fff',
+  fontSize: 18,
+  marginBottom: 25,
+  textAlign: 'center',
+},
+spotifyButton: {
+  width: '80%',
+  borderRadius: 18,
+  paddingVertical: 14,
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 20,
+  shadowColor: '#00C6FF',
+  shadowOpacity: 0.4,
+  shadowRadius: 8,
+},
+spotifyButtonText: {
+  color: '#fff',
+  fontWeight: '700',
+  fontSize: 16,
+},
+endSessionButton: {
+  width: '80%',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.1)',
+  borderRadius: 18,
+  paddingVertical: 12,
+  marginTop: 25,
+  alignItems: 'center',
+},
+endSessionText: {
+  color: '#fff',
+  fontSize: 16,
+  fontWeight: '600',
+},
+modeButtonWhite: {
+  width: '90%',
+  backgroundColor: '#fff',
+  borderRadius: 50,
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 14,
+  marginTop: 25,
+  shadowColor: '#fff',
+  shadowOpacity: 0.15,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+},
+modeButtonWhiteText: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#000',
+  textAlign: 'center',
+},
+actionButtons: {
+  width: '100%',
+  alignItems: 'center',
+  marginTop: 20,
+},
+buttonWrapper: {
+  width: '80%',
+  marginBottom: 15,
+},
+gradientButtonUnified: {
+  width: '100%',
+  paddingVertical: 14,
+  borderRadius: 25,
+  alignItems: 'center',
+  justifyContent: 'center',
+  shadowColor: '#00C6FF',
+  shadowOpacity: 0.35,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 3 },
+},
+whiteButtonUnified: {
+  width: '80%',
+  backgroundColor: '#fff',
+  borderRadius: 25,
+  paddingVertical: 14,
+  alignItems: 'center',
+  justifyContent: 'center',
+  shadowColor: '#fff',
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+},
+whiteButtonText: {
+  color: '#000',
+  fontWeight: '700',
+  fontSize: 16,
+  textAlign: 'center',
+},
+feedbackOptionCard: {
+  width: '100%',
+  backgroundColor: 'rgba(0,0,0,0.65)',
+  borderRadius: 16,
+  paddingVertical: 16,
+  paddingHorizontal: 20,
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginVertical: 6,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.2)',
+},
 });

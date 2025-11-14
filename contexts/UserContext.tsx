@@ -24,7 +24,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [userData, setUserData] = useState<UserData | null>(null);
 
   useEffect(() => {
-    // 🔹 Reaguje na zmianę stanu logowania
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
@@ -40,7 +39,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribeAuth();
   }, []);
 
-  // 🔥 Real-time subskrypcja Firestore user doc
   const subscribeToUserDoc = (uid: string) => {
     const ref = doc(db, "users", uid);
     return onSnapshot(ref, (snap) => {

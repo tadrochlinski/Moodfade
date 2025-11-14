@@ -22,6 +22,6 @@ const db = initializeFirestore(app, {
 });
 
 const auth = getAuth(app);
-const storage = getStorage(app); // 👈 DODANE
+const storage = getStorage(app);
 
-export { app, db, auth, storage }; // 👈 EXPORT z storage
+export { app, db, auth, storage };

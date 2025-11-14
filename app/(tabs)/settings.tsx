@@ -143,7 +143,6 @@ export default function Settings() {
     try {
       let base64 = result.assets[0].base64;
 
-      // 🔹 Jeśli Expo nie zwróci base64, pobierzmy plik ręcznie i przekonwertujmy
       if (!base64) {
         const response = await fetch(result.assets[0].uri);
         const blob = await response.blob();
@@ -155,7 +154,6 @@ export default function Settings() {
       const uri = `data:image/jpeg;base64,${base64}`;
       setPhotoURL(uri);
 
-      // 🔹 Zapisujemy natychmiast po wybraniu
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         await updateDoc(userRef, { photoBase64: uri });
@@ -327,7 +325,7 @@ export default function Settings() {
             return (
               <Pressable key={label} onPress={() => setSelectedMood(label)} style={{ marginBottom: 12 }}>
                 <LinearGradient
-                  colors={selected ? (colors as [string, string]) : ['#111', '#111']}
+                  colors={selected ? (colors as [string, string]) : ['#000', '#000']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[
@@ -553,7 +551,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   whiteButtonText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
-  moodCard: { padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  moodCard: { padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: "rgba(0,0,0,0.65)", borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",},
   moodText: { color: '#fff', fontSize: 16, fontWeight: '500' },
   logoutButton: {
     marginTop: 10,
@@ -573,15 +572,17 @@ const styles = StyleSheet.create({
     padding: 30,
   },
   modalContainer: {
-    backgroundColor: '#111',
+    backgroundColor: '#000',
     borderRadius: 15,
     padding: 20,
     width: '100%',
     alignItems: 'center',
+    borderWidth:1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
   modalTitle: { color: '#fff', fontSize: 20, fontWeight: '600', marginBottom: 15, textAlign: 'center' },
   modalInput: {
-    backgroundColor: '#222',
+    backgroundColor: '#000',
     color: '#fff',
     width: '100%',
     borderRadius: 8,

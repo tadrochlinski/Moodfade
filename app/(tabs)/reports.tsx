@@ -84,7 +84,6 @@ function useUserSessions(maxSessions = 100) {
   return { sessions, loading };
 }
 
-// ---------- STATS ----------
 function buildStats(sessions: SessionDoc[]) {
   const moodCounts: Record<string, number> = {};
   const moodFeedback: Record<string, Record<string, number>> = {};
