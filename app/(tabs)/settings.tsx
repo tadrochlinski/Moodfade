@@ -24,6 +24,7 @@ import backgroundAnimation from '../../assets/lottie/Background.json';
 import { useAuth } from '../../contexts/AuthProvider';
 import { useUser } from '../../contexts/UserContext';
 import { db, auth } from '../../utils/firebaseConfig';
+import { serverTimestamp } from "firebase/firestore";
 
 const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID!;
 const redirectUri = AuthSession.makeRedirectUri();
@@ -196,6 +197,16 @@ export default function Settings() {
     }
   };
 
+  async function updateTargetMood(uid: string, mood: string) {
+  const userRef = doc(db, "users", uid);
+
+    await updateDoc(userRef, {
+      targetMood: mood,
+      targetMoodChangedAt: serverTimestamp(), // <<< najważniejsze
+      updatedAt: serverTimestamp(),
+    });
+  } 
+
   // === Email verification loop ===
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -347,7 +358,7 @@ export default function Settings() {
               if (!user || !selectedMood) return;
               try {
                 setLoadingMood(true);
-                await updateDoc(doc(db, 'users', user.uid), { targetMood: selectedMood });
+                await updateTargetMood(user.uid, selectedMood!);
                 await reloadUserData();
                 Alert.alert('✅ Target mood saved!', `Your mood: ${selectedMood}`);
               } catch {

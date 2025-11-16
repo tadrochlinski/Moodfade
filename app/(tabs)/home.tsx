@@ -64,7 +64,12 @@ export default function HomeScreen() {
     ? [userData.favoriteArtists]
     : [];
 
-  const { tracks, loading } = useMoodSongs(selectedMood, targetMood, listeningMode ?? undefined);
+  const { tracks, loading } = useMoodSongs(
+  selectedMood,
+  targetMood,
+  listeningMode ?? null // przekażemy null, nie undefined → hook to rozpozna
+);
+
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -76,10 +81,16 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (showTrackFeedback && tracks.length > 0) {
-      const initialLiked = tracks.slice(0, 8).map(t => `${t.title}__${t.author}`);
+      const initialLiked = tracks.slice(0, 8).map(
+      t => `${t.title}__${t.author}__${t.imageUrl || 'noimg'}`
+    );
       setLikedTracks(initialLiked);
     }
   }, [showTrackFeedback, tracks]);
+
+  useEffect(() => {
+    // no-op — triggers rerender when tracks change
+  }, [tracks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +218,6 @@ export default function HomeScreen() {
         dislikedTracks,
         createdAt: serverTimestamp(),
       });
-      Alert.alert('Session saved', 'Thank you for your feedback!');
       setSelectedMood(null);
       setListeningMode(null);
       setSelectedFeedback(null);
@@ -269,7 +279,13 @@ export default function HomeScreen() {
     );
   }
 
-  if (selectedMood && !listeningMode && targetMood) {
+  if (selectedMood && !listeningMode) {
+    
+    if (!targetMood) {
+      setListeningMode('current');
+      return null;
+    }
+
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
@@ -432,8 +448,6 @@ if (showFeedback) {
     </View>
   );
 }
-
-
   // --- Track feedback ---
   if (showTrackFeedback) {
     return (
@@ -445,10 +459,9 @@ if (showFeedback) {
           <Text style={styles.feedbackSubtitle}>Toggle to like or dislike</Text>
 
           {tracks.slice(0, 8).map(track => {
-            const key = `${track.title}__${track.author}`;
+            const key = `${track.title}__${track.author}__${track.imageUrl || 'noimg'}`;
             const liked = likedTracks.includes(key);
             const disliked = dislikedTracks.includes(key);
-
             return (
               <View
                 key={key}

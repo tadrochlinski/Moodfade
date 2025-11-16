@@ -12,9 +12,11 @@ export interface Track {
   mood_category?: string;
   spotify_url?: string;
   imageUrl?: string | null;
+
   _source?: 'current' | 'bridge' | 'target' | 'favoriteArtist';
-  _sourceMood?: string | null; 
+  _sourceMood?: string | null;
   _note?: string;
+  _score?: number; // tylko lokalnie, do sortowania
 }
 
 const bridgeMoodsMap: Record<string, string> = {
@@ -26,16 +28,30 @@ const bridgeMoodsMap: Record<string, string> = {
   'Unconventional & Playful': 'Energetic & Intense',
 };
 
+type Mode = 'current' | 'regulation' | null;
+
+type FeedbackLabel = 'Very Positive' | 'Positive' | 'Neutral' | 'Negative' | 'Very Negative';
+
+const feedbackScoreMap: Record<FeedbackLabel, number> = {
+  'Very Positive': 2,
+  Positive: 1,
+  Neutral: 0,
+  Negative: -1,
+  'Very Negative': -2,
+};
+
+const getTrackKey = (t: { title: string; author: string }) => `${t.title}__${t.author}`;
+
 export default function useMoodSongs(
   currentMood: string | null | undefined,
   targetMood?: string | null | undefined,
-  mode: 'current' | 'regulation' = 'current'
+  mode: Mode = 'current'
 ) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
 
   const { token } = useSpotify();
-  const { userData } = useUser();
+  const { user, userData } = useUser();
   const favoriteArtists = userData?.favoriteArtists ?? [];
 
   // —————————————— helpers ——————————————
@@ -45,7 +61,9 @@ export default function useMoodSongs(
   };
 
   const fmt = (t: Track) =>
-    `${t.title} — ${t.author}${t._source ? ` [${t._source}${t._sourceMood ? `:${t._sourceMood}` : ''}]` : ''}`;
+    `${t.title} — ${t.author}${
+      t._source ? ` [${t._source}${t._sourceMood ? `:${t._sourceMood}` : ''}]` : ''
+    }`;
 
   const logList = (prefix: string, list: Track[]) => {
     console.log(prefix);
@@ -53,11 +71,17 @@ export default function useMoodSongs(
     if (list.length === 0) console.log('  (empty)');
   };
 
+  // ————————————————————————————————————————
+
   useEffect(() => {
     let cancelled = false;
 
     async function fetchTracks() {
       if (!currentMood) return;
+      if (!mode) {
+        console.log("⏸️ Mode not chosen yet → skipping playlist build");
+        return;
+}
 
       try {
         setLoading(true);
@@ -65,17 +89,105 @@ export default function useMoodSongs(
         console.log('🧠 Mode:', mode);
         console.log('💭 Current mood:', currentMood);
         console.log('🎯 Target mood:', targetMood ?? '(none)');
+        console.log('👤 User ID:', user?.uid ?? '(no user)');
         console.log('🎤 Favorite artists:', favoriteArtists);
 
+        // -------------------------------------------------
+        // 1) ANALIZA SESSIONS (ostatnie 30 dni)
+        // -------------------------------------------------
+        const trackStats: Record<string, { likes: number; dislikes: number }> = {};
+        const moodFeedbackRaw: Record<string, number> = {};
+
+        if (user?.uid) {
+          logDivider('SESSIONS ANALYSIS (last 30 days)');
+          const since = new Date();
+          since.setDate(since.getDate() - 30);
+
+          const sessionsQ = query(
+            collection(db, 'sessions'),
+            where('userId', '==', user.uid),
+            where('createdAt', '>=', since)
+          );
+
+          const sessionsSnap = await getDocs(sessionsQ);
+          console.log(`📈 Sessions found: ${sessionsSnap.docs.length}`);
+
+          sessionsSnap.forEach(docSnap => {
+            const data = docSnap.data() as any;
+            const sessionMood: string | undefined = data.mood;
+            const sessionTargetMood: string | undefined = data.targetMood;
+            const sessionMode: Mode | undefined = data.mode;
+            const feedback: FeedbackLabel | undefined = data.feedback;
+            const liked: string[] = Array.isArray(data.likedTracks) ? data.likedTracks : [];
+            const disliked: string[] = Array.isArray(data.dislikedTracks) ? data.dislikedTracks : [];
+
+            // --- track level ---
+            liked.forEach(key => {
+              if (!trackStats[key]) trackStats[key] = { likes: 0, dislikes: 0 };
+              trackStats[key].likes += 1;
+            });
+            disliked.forEach(key => {
+              if (!trackStats[key]) trackStats[key] = { likes: 0, dislikes: 0 };
+              trackStats[key].dislikes += 1;
+            });
+
+            // --- mood level (ogólny nastrój po sesji) ---
+            if (feedback && sessionMood) {
+              const baseScore = feedbackScoreMap[feedback] ?? 0;
+              if (baseScore !== 0) {
+                if (sessionMode === 'regulation' && sessionTargetMood) {
+                  // regulacja: część zasługi / winy ląduje na obu moodach
+                  const pairs = [
+                    { mood: sessionMood, weight: 0.4 },
+                    { mood: sessionTargetMood, weight: 0.6 },
+                  ];
+                  pairs.forEach(({ mood, weight }) => {
+                    if (!moodFeedbackRaw[mood]) moodFeedbackRaw[mood] = 0;
+                    moodFeedbackRaw[mood] += baseScore * weight;
+                  });
+                } else {
+                  if (!moodFeedbackRaw[sessionMood]) moodFeedbackRaw[sessionMood] = 0;
+                  moodFeedbackRaw[sessionMood] += baseScore;
+                }
+              }
+            }
+          });
+
+          console.log('🎚️ Track feedback map (likes/dislikes per key):', trackStats);
+          console.log('🎯 Raw mood feedback scores:', moodFeedbackRaw);
+        } else {
+          console.log('ℹ️ No user ID → skipping sessions analysis');
+        }
+
+        // Normalizacja mood feedback → zakres -1..1
+        const moodFeedbackNorm: Record<string, number> = {};
+        const moodValues = Object.values(moodFeedbackRaw);
+        const maxAbs = moodValues.reduce((m, v) => Math.max(m, Math.abs(v)), 0) || 1;
+        Object.entries(moodFeedbackRaw).forEach(([mood, val]) => {
+          moodFeedbackNorm[mood] = val / maxAbs;
+        });
+        console.log('📊 Normalized mood feedback (per mood_category):', moodFeedbackNorm);
+
+        // -------------------------------------------------
+        // 2) DOBÓR PODSTAWOWYCH TRACKÓW (current / regulation)
+        // -------------------------------------------------
         let moodTracks: Track[] = [];
 
-        // ============== REGULATION: 40/20/40 ==============
         if (mode === 'regulation' && targetMood) {
+          // ============== REGULATION: 40/20/40 ==============
           const bridgeMood = bridgeMoodsMap[currentMood ?? ''] ?? null;
-          console.log(`🪜 Regulation path: ${currentMood}  →  ${bridgeMood ?? '(no bridge)'}  →  ${targetMood}`);
+          console.log(
+            `🪜 Regulation path: ${currentMood}  →  ${bridgeMood ?? '(no bridge)'}  →  ${targetMood}`
+          );
 
-          const currentQuery = query(collection(db, 'tracks'), where('mood_category', '==', currentMood));
-          const targetQuery = query(collection(db, 'tracks'), where('mood_category', '==', targetMood));
+          const currentQuery = query(
+            collection(db, 'tracks'),
+            where('mood_category', '==', currentMood)
+          );
+          const targetQuery = query(
+            collection(db, 'tracks'),
+            where('mood_category', '==', targetMood)
+          );
           const bridgeQuery = bridgeMood
             ? query(collection(db, 'tracks'), where('mood_category', '==', bridgeMood))
             : null;
@@ -102,13 +214,14 @@ export default function useMoodSongs(
             _sourceMood: targetMood,
           }));
 
-          const bridgePool: Track[] = (bridgeSnap as any)?.docs?.map((doc: any) => ({
-            id: doc.id,
-            ...(doc.data() as any),
-            imageUrl: null,
-            _source: 'bridge',
-            _sourceMood: bridgeMood,
-          })) ?? [];
+          const bridgePool: Track[] =
+            (bridgeSnap as any)?.docs?.map((doc: any) => ({
+              id: doc.id,
+              ...(doc.data() as any),
+              imageUrl: null,
+              _source: 'bridge',
+              _sourceMood: bridgeMood,
+            })) ?? [];
 
           logDivider('POOLS');
           console.log(`📚 Current pool (${currentMood}): ${currentPool.length}`);
@@ -126,11 +239,13 @@ export default function useMoodSongs(
 
           moodTracks = [...fromCurrent, ...fromBridge, ...fromTarget];
           console.log(`🧩 Combined (pre-spotify, pre-favorites): ${moodTracks.length} tracks`);
-        }
-
-        else {
-          const q = query(collection(db, 'tracks'), where('mood_category', '==', currentMood));
-          const snapshot = await getDocs(q);
+        } else {
+          // ============== CURRENT: 30 ==============
+          const qCurrent = query(
+            collection(db, 'tracks'),
+            where('mood_category', '==', currentMood)
+          );
+          const snapshot = await getDocs(qCurrent);
           let currentOnly: Track[] = snapshot.docs.map(doc => ({
             id: doc.id,
             ...(doc.data() as Omit<Track, 'id'>),
@@ -148,22 +263,30 @@ export default function useMoodSongs(
           moodTracks = currentOnly;
         }
 
+        // -------------------------------------------------
+        // 3) SPOTIFY ENRICH – okładki + url
+        // -------------------------------------------------
         if (token) {
           logDivider('SPOTIFY ENRICH (covers + urls)');
-          const limited = moodTracks.slice(0, 10);
+          const ENRICH_COUNT = moodTracks.length;
+          const limited = moodTracks;     // enrich ALL    
           console.log(`🔎 Enriching first ${limited.length} tracks via /search (covers)`);
           const updatedMap = new Map<string, Track>();
 
           for (const track of limited) {
             const searchQuery = `track:${track.title} artist:${track.author}`;
             const res = await fetch(
-              `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=1`,
+              `https://api.spotify.com/v1/search?q=${encodeURIComponent(
+                searchQuery
+              )}&type=track&limit=1`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (res.status !== 200) {
               const errTxt = await res.text();
-              console.warn(`⚠️ Spotify search failed [${res.status}] for "${searchQuery}": ${errTxt}`);
+              console.warn(
+                `⚠️ Spotify search failed [${res.status}] for "${searchQuery}": ${errTxt}`
+              );
               continue;
             }
 
@@ -189,6 +312,9 @@ export default function useMoodSongs(
           console.warn('⚠️ No Spotify token → skipping covers enrichment');
         }
 
+        // -------------------------------------------------
+        // 4) ULUBIENI ARTYŚCI (top tracks z Spotify)
+        // -------------------------------------------------
         const collected: Track[] = [];
         if (token && favoriteArtists.length > 0) {
           logDivider('FAVORITE ARTISTS (top-tracks)');
@@ -197,7 +323,9 @@ export default function useMoodSongs(
             try {
               console.log(`🎤 Artist: ${artist} → search ID`);
               const searchRes = await fetch(
-                `https://api.spotify.com/v1/search?q=${encodeURIComponent(artist)}&type=artist&limit=1`,
+                `https://api.spotify.com/v1/search?q=${encodeURIComponent(
+                  artist
+                )}&type=artist&limit=1`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               const searchJson = await searchRes.json();
@@ -239,6 +367,9 @@ export default function useMoodSongs(
           console.log('ℹ️ No favorite artists or no token → skipping favorites step');
         }
 
+        // -------------------------------------------------
+        // 5) MERGE + DEDUP
+        // -------------------------------------------------
         logDivider('MERGE + DEDUP');
         const seen = new Set<string>();
         const combined = [...moodTracks, ...collected].filter(t => {
@@ -247,28 +378,77 @@ export default function useMoodSongs(
           return true;
         });
 
-        const tagged = combined.map(t => {
-          const tag =
-            t._source === 'current' ? '[C]' :
-            t._source === 'bridge' ?  '[B]' :
-            t._source === 'target' ?  '[T]' :
-            t._source === 'favoriteArtist' ? '[F]' : '[?]';
-          return `${tag} ${t.title} — ${t.author}${t._sourceMood ? ` (${t._sourceMood})` : ''}`;
-        });
-
-        console.log(`🔗 Combined total (pre-slice): ${combined.length}`);
+        console.log(`🔗 Combined total (pre-feedback scoring): ${combined.length}`);
         logList('📜 Combined list:', combined);
 
-        const final = combined.slice(0, 45);
+        // -------------------------------------------------
+        // 6) ZASTOSOWANIE FEEDBACKU (likes/dislikes + nastrój)
+        // -------------------------------------------------
+        logDivider('APPLY FEEDBACK SCORING');
+
+        const scored: Track[] = combined
+          .map(t => {
+            const key = getTrackKey(t);
+            const stats = trackStats[key] ?? { likes: 0, dislikes: 0 };
+            const moodScore =
+              t.mood_category && moodFeedbackNorm[t.mood_category]
+                ? moodFeedbackNorm[t.mood_category]
+                : 0;
+
+            // bannujemy jeśli ≥2 dislikes
+            if (stats.dislikes >= 2) {
+              console.log(`🚫 BANNED (>=2 dislikes): ${key}`);
+              return { ...t, _score: -999 };
+            }
+
+            let score = 1; // bazowy
+            if (stats.dislikes === 1) score -= 0.4; // delikatny minus
+            if (stats.likes >= 3) score += 0.3; // delikatny plus za dużo like'ów
+            score += moodScore * 0.3; // wpływ tego, jak dany mood działał w historii
+
+            return { ...t, _score: score };
+          })
+          .filter(t => (t._score ?? 1) > -100); // wyrzucamy zbanowane
+
+        console.log(
+          '📊 Example scored tracks (first 10):',
+          scored.slice(0, 10).map(t => ({
+            key: getTrackKey(t),
+            score: t._score,
+            mood: t.mood_category,
+          }))
+        );
+
+        // sortujemy malejąco po score + mały random, żeby lista nie była zawsze identyczna
+        scored.sort(
+          (a, b) =>
+            (b._score ?? 0) +
+            Math.random() * 0.1 -
+            ((a._score ?? 0) + Math.random() * 0.1)
+        );
+
+        const final = scored.slice(0, 45);
         console.log(`✅ Final list size: ${final.length}`);
-        console.log('🏷️ Final (compact):\n' + final.map(t => {
-          const tag =
-            t._source === 'current' ? '[C]' :
-            t._source === 'bridge' ?  '[B]' :
-            t._source === 'target' ?  '[T]' :
-            t._source === 'favoriteArtist' ? '[F]' : '[?]';
-          return `  • ${tag} ${t.title} — ${t.author}${t._sourceMood ? ` (${t._sourceMood})` : ''}`;
-        }).join('\n'));
+        console.log(
+          '🏷️ Final (compact):\n' +
+            final
+              .map(t => {
+                const tag =
+                  t._source === 'current'
+                    ? '[C]'
+                    : t._source === 'bridge'
+                    ? '[B]'
+                    : t._source === 'target'
+                    ? '[T]'
+                    : t._source === 'favoriteArtist'
+                    ? '[F]'
+                    : '[?]';
+                return `  • ${tag} ${t.title} — ${t.author}${
+                  t._sourceMood ? ` (${t._sourceMood})` : ''
+                } [score=${t._score?.toFixed(2)}]`;
+              })
+              .join('\n')
+        );
 
         if (!cancelled) setTracks(final);
       } catch (error) {
@@ -282,6 +462,7 @@ export default function useMoodSongs(
       }
     }
 
+    // reset + start
     setTracks([]);
     setLoading(false);
     if (currentMood && mode) fetchTracks();
@@ -290,7 +471,7 @@ export default function useMoodSongs(
       cancelled = true;
       console.log('⏹️ Cancelled track fetch.');
     };
-  }, [currentMood, targetMood, mode, token, JSON.stringify(favoriteArtists)]);
+  }, [currentMood, targetMood, mode, token, user?.uid, JSON.stringify(favoriteArtists)]);
 
   return { tracks, loading };
 }

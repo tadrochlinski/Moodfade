@@ -9,6 +9,7 @@ interface UserData {
   spotifyConnected?: boolean;
   photoBase64?: string;
   targetMood?: string;
+  targetMoodChangedAt?: Date | null;
 }
 
 interface UserContextType {
@@ -51,6 +52,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           spotifyConnected: data.spotifyConnected ?? false,
           photoBase64: data.photoBase64 ?? "",
           targetMood: data.targetMood ?? "",
+            targetMoodChangedAt: data.targetMoodChangedAt?.toDate?.() ?? null,
         });
       } else {
         console.warn("⚠️ User doc missing in Firestore for UID:", uid);
@@ -73,6 +75,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           spotifyConnected: data.spotifyConnected ?? false,
           photoBase64: data.photoBase64 ?? "",
           targetMood: data.targetMood ?? "",
+          targetMoodChangedAt: data.targetMoodChangedAt?.toDate?.() ?? null,
         });
       }
     } catch (error) {
