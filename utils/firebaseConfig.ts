@@ -1,7 +1,7 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { getStorage } from 'firebase/storage'; // 👈 DODANE
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -13,7 +13,7 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-console.log('🧪 Firebase config loaded:', firebaseConfig);
+console.log("🧪 Firebase config loaded:", firebaseConfig);
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 

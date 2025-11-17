@@ -35,7 +35,6 @@ interface SessionDoc {
   createdAt: Date | null;
 }
 
-// ---------- HOOK ----------
 function useUserSessions(maxSessions = 100) {
   const [sessions, setSessions] = useState<SessionDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +51,7 @@ function useUserSessions(maxSessions = 100) {
       collection(db, "sessions"),
       where("userId", "==", uid),
       orderBy("createdAt", "desc"),
-      limit(maxSessions)
+      limit(maxSessions),
     );
 
     const unsubscribe = onSnapshot(
@@ -76,7 +75,7 @@ function useUserSessions(maxSessions = 100) {
       (error) => {
         console.error("Error listening to sessions:", error);
         setLoading(false);
-      }
+      },
     );
 
     return () => unsubscribe();
@@ -85,47 +84,41 @@ function useUserSessions(maxSessions = 100) {
   return { sessions, loading };
 }
 
-// ---------- FIBONACCI EMA TREND SCORE ----------
 function calculateTrendScore(
   sessions: SessionDoc[],
   targetMood: string | null,
-  targetMoodChangedAt: Date | null
+  targetMoodChangedAt: Date | null,
 ) {
   if (!targetMood) {
     console.log("⚠️ No target mood → trendScore = null");
     return null;
   }
 
-  console.log("📈 Calculating Fibonacci EMA Trend Score for targetMood:", targetMood);
+  console.log(
+    "📈 Calculating Fibonacci EMA Trend Score for targetMood:",
+    targetMood,
+  );
 
   const weightMap: Record<string, number> = {
     "Very Positive": 3,
-    "Positive": 2,
-    "Neutral": 1,
-    "Negative": -2,
+    Positive: 2,
+    Neutral: 1,
+    Negative: -2,
     "Very Negative": -3,
   };
 
-  // Pick only relevant attempts
   const attempts = sessions.filter((s) => {
-  const meetsTime =
-    !targetMoodChangedAt ||
-    (!s.createdAt || s.createdAt >= targetMoodChangedAt);
+    const meetsTime =
+      !targetMoodChangedAt ||
+      !s.createdAt ||
+      s.createdAt >= targetMoodChangedAt;
 
-  const isAttempt =
-    (
-      s.mode === "regulation" &&
-      meetsTime
-    ) ||
-    (
-      s.mode === "current" &&
-      s.mood === targetMood &&
-      meetsTime
-    );
+    const isAttempt =
+      (s.mode === "regulation" && meetsTime) ||
+      (s.mode === "current" && s.mood === targetMood && meetsTime);
 
-  return isAttempt && s.feedback;
-});
-
+    return isAttempt && s.feedback;
+  });
 
   console.log("🧪 Total ATTEMPTS detected:", attempts.length);
 
@@ -145,7 +138,6 @@ function calculateTrendScore(
     return null;
   }
 
-  // Only last 12
   const recent = attempts.slice(0, 12);
   console.log(`📉 Using last ${recent.length} attempts (max 12).`);
 
@@ -156,7 +148,6 @@ function calculateTrendScore(
   const alpha = 2 / (N + 1);
   console.log("⚙️ EMA alpha:", alpha);
 
-  // EMA calculation
   let ema = values[0];
   for (let i = 1; i < values.length; i++) {
     ema = alpha * values[i] + (1 - alpha) * ema;
@@ -164,16 +155,11 @@ function calculateTrendScore(
 
   console.log("📊 Raw EMA result:", ema);
 
-  // Normalize -3..3 → 0..100
-  const normalized = (ema - (-3)) / 6;
+  const normalized = (ema - -3) / 6;
   const score = Math.round(normalized * 100);
 
   console.log("🎯 Final normalized Trend Score (before confidence):", score);
 
-  // ------------------------------------
-  // CONFIDENCE SCALING
-  // ------------------------------------
-  // grows from 0 → 1 as attempts go from 0 → 6
   const confidence = Math.min(1, attempts.length / 6);
 
   console.log("🧠 Confidence factor:", confidence);
@@ -183,16 +169,11 @@ function calculateTrendScore(
   console.log("📉 Adjusted Trend Score (with confidence):", adjusted);
 
   return Math.max(0, Math.min(100, adjusted));
-
 }
-
-
-
-// ---------- BUILD STATS ----------
 function buildStats(
   sessions: SessionDoc[],
   userTargetMood: string | null,
-  targetMoodChangedAt: Date | null
+  targetMoodChangedAt: Date | null,
 ) {
   console.log("🧮 buildStats() called with targetMood =", userTargetMood);
   console.log("🧾 Sessions passed in:", sessions.length);
@@ -211,7 +192,6 @@ function buildStats(
       createdAt: s.createdAt?.toISOString?.() ?? null,
     });
 
-    // --- Stats for top moods etc ---
     if (s.mood) {
       moodCounts[s.mood] = (moodCounts[s.mood] || 0) + 1;
 
@@ -221,25 +201,21 @@ function buildStats(
       }
     }
 
-    // --- Determine if this session is an ATTEMPT (counts into denominator) ---
     const isAttempt =
-    (
-      s.mode === "regulation" &&
-      (targetMoodChangedAt ? s.createdAt && s.createdAt >= targetMoodChangedAt : true)
-    ) ||
-    (
-      s.mode === "current" &&
-      userTargetMood &&
-      s.mood === userTargetMood &&
-      (targetMoodChangedAt ? s.createdAt && s.createdAt >= targetMoodChangedAt : true)
-    );
+      (s.mode === "regulation" &&
+        (targetMoodChangedAt
+          ? s.createdAt && s.createdAt >= targetMoodChangedAt
+          : true)) ||
+      (s.mode === "current" &&
+        userTargetMood &&
+        s.mood === userTargetMood &&
+        (targetMoodChangedAt
+          ? s.createdAt && s.createdAt >= targetMoodChangedAt
+          : true));
 
-
-
-
-    // Track likes/dislikes
     for (const key of s.likedTracks || []) liked[key] = (liked[key] || 0) + 1;
-    for (const key of s.dislikedTracks || []) disliked[key] = (disliked[key] || 0) + 1;
+    for (const key of s.dislikedTracks || [])
+      disliked[key] = (disliked[key] || 0) + 1;
 
     console.log("📌 Attempt summary done — now computing trendScore...");
   }
@@ -255,9 +231,8 @@ function buildStats(
   const trendScore = calculateTrendScore(
     sessions,
     userTargetMood,
-    targetMoodChangedAt
+    targetMoodChangedAt,
   );
-
 
   return {
     moodCounts,
@@ -266,13 +241,11 @@ function buildStats(
     disliked,
     trendScore,
   };
-
 }
 
-
-
-
-function pickRecommendedMood(moodFeedback: Record<string, Record<string, number>>) {
+function pickRecommendedMood(
+  moodFeedback: Record<string, Record<string, number>>,
+) {
   let bestMood: string | null = null;
   let bestScore = -Infinity;
 
@@ -294,13 +267,11 @@ function pickRecommendedMood(moodFeedback: Record<string, Record<string, number>
   return bestMood;
 }
 
-
 function formatTrackKey(key: string) {
   const [title, author] = key.split("__");
   return { title, author };
 }
 
-// ---------- MAIN COMPONENT ----------
 export default function Reports() {
   const { userData } = useUser();
   const targetMoodChangedAt = userData?.targetMoodChangedAt ?? null;
@@ -313,30 +284,28 @@ export default function Reports() {
     photoBase64 && photoBase64.length > 0
       ? photoBase64
       : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          name
+          name,
         )}&background=444&color=fff&size=128`;
 
   const { sessions, loading } = useUserSessions();
   const [targetMood, setTargetMood] = useState<string | null>(null);
   useEffect(() => {
-  console.log("🎯 targetMood state changed:", targetMood);
+    console.log("🎯 targetMood state changed:", targetMood);
   }, [targetMood]);
 
   const stats = useMemo(
     () => buildStats(sessions, targetMood, targetMoodChangedAt),
-    [sessions, targetMood, targetMoodChangedAt]
-  ) ;
+    [sessions, targetMood, targetMoodChangedAt],
+  );
 
+  const recommendedMood = useMemo(
+    () => pickRecommendedMood(stats.moodFeedback),
+    [stats],
+  );
 
-  
-  const recommendedMood = useMemo(() => pickRecommendedMood(stats.moodFeedback), [stats]);
-
-  
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [trackCovers, setTrackCovers] = useState<Record<string, string>>({});
 
-
-  // ---------- Load user's target mood ----------
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
@@ -357,7 +326,6 @@ export default function Reports() {
     return () => unsub();
   }, []);
 
-  // ---------- Fetch cover art ----------
   useEffect(() => {
     if (!spotifyToken || sessions.length === 0) return;
 
@@ -365,9 +333,12 @@ export default function Reports() {
       if (trackCovers[key]) return;
       try {
         const q = encodeURIComponent(`track:${title} artist:${author}`);
-        const res = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`, {
-          headers: { Authorization: `Bearer ${spotifyToken}` },
-        });
+        const res = await fetch(
+          `https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`,
+          {
+            headers: { Authorization: `Bearer ${spotifyToken}` },
+          },
+        );
         const data = await res.json();
         const img = data.tracks?.items?.[0]?.album?.images?.[0]?.url;
         if (img) setTrackCovers((prev) => ({ ...prev, [key]: img }));
@@ -405,10 +376,14 @@ export default function Reports() {
     });
   };
 
-  // ---------- UI ----------
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
-      <LottieView source={backgroundAnimation} autoPlay loop style={StyleSheet.absoluteFill} />
+      <LottieView
+        source={backgroundAnimation}
+        autoPlay
+        loop
+        style={StyleSheet.absoluteFill}
+      />
       <Header />
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         <ScrollView
@@ -418,21 +393,26 @@ export default function Reports() {
           <Text style={styles.title}>Your Mood Report</Text>
 
           {loading && sessions.length === 0 ? (
-            <ActivityIndicator size="large" color="#fff" style={{ marginTop: 40 }} />
+            <ActivityIndicator
+              size="large"
+              color="#fff"
+              style={{ marginTop: 40 }}
+            />
           ) : sessions.length === 0 ? (
             <Text style={styles.emptyText}>
-              Start your first session to see detailed reports about your moods and music!
+              Start your first session to see detailed reports about your moods
+              and music!
             </Text>
           ) : (
             <>
-              {/* Target mood progress */}
               {targetMood && (
                 <View style={styles.card}>
                   <Text style={styles.cardTitle}>Target mood progress</Text>
 
                   {stats.trendScore == null ? (
                     <Text style={styles.cardSubtitle}>
-                      Complete a session while working toward your target mood to begin building your trend.
+                      Complete a session while working toward your target mood
+                      to begin building your trend.
                     </Text>
                   ) : (
                     <>
@@ -441,14 +421,19 @@ export default function Reports() {
                         <Text style={styles.highlight}>{targetMood}</Text>:
                       </Text>
 
-                      <Text style={styles.progressNumber}>{stats.trendScore}%</Text>
+                      <Text style={styles.progressNumber}>
+                        {stats.trendScore}%
+                      </Text>
 
                       <View style={styles.progressBarBg}>
                         <LinearGradient
                           colors={["#6C63FF", "#00C6FF"]}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
-                          style={[styles.progressBarFill, { width: `${stats.trendScore}%` }]}
+                          style={[
+                            styles.progressBarFill,
+                            { width: `${stats.trendScore}%` },
+                          ]}
                         />
                       </View>
                     </>
@@ -456,22 +441,22 @@ export default function Reports() {
                 </View>
               )}
 
-              {/* Recommended mood */}
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Recommended mood</Text>
                 {recommendedMood ? (
                   <Text style={styles.cardSubtitle}>
                     You usually feel best after listening to{" "}
-                    <Text style={styles.highlight}>{recommendedMood}</Text> sessions.
+                    <Text style={styles.highlight}>{recommendedMood}</Text>{" "}
+                    sessions.
                   </Text>
                 ) : (
                   <Text style={styles.cardSubtitle}>
-                    Not enough feedback yet. Finish a few sessions to get insights.
+                    Not enough feedback yet. Finish a few sessions to get
+                    insights.
                   </Text>
                 )}
               </View>
 
-              {/* Top moods */}
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Top moods</Text>
 
@@ -496,7 +481,10 @@ export default function Reports() {
                               colors={["#6C63FF", "#00C6FF"]}
                               start={{ x: 0, y: 0 }}
                               end={{ x: 1, y: 0 }}
-                              style={[styles.progressBarFill, { width: `${pct}%` }]}
+                              style={[
+                                styles.progressBarFill,
+                                { width: `${pct}%` },
+                              ]}
                             />
                           </View>
                         </View>
@@ -505,7 +493,6 @@ export default function Reports() {
                 )}
               </View>
 
-              {/* Most liked tracks */}
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Most liked tracks</Text>
                 {Object.entries(stats.liked)
@@ -517,21 +504,28 @@ export default function Reports() {
                     return (
                       <View key={key} style={styles.trackRow}>
                         {cover ? (
-                          <Image source={{ uri: cover }} style={styles.trackImage} />
+                          <Image
+                            source={{ uri: cover }}
+                            style={styles.trackImage}
+                          />
                         ) : (
-                          <LinearGradient colors={["#222", "#333"]} style={styles.trackImage} />
+                          <LinearGradient
+                            colors={["#222", "#333"]}
+                            style={styles.trackImage}
+                          />
                         )}
                         <View style={{ flex: 1 }}>
                           <Text style={styles.trackTitle}>{title}</Text>
                           <Text style={styles.trackAuthor}>{author}</Text>
-                          <Text style={styles.trackStat}>Liked {count} times</Text>
+                          <Text style={styles.trackStat}>
+                            Liked {count} times
+                          </Text>
                         </View>
                       </View>
                     );
                   })}
               </View>
 
-              {/* Most disliked tracks */}
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Most disliked tracks</Text>
                 {Object.entries(stats.disliked)
@@ -543,89 +537,90 @@ export default function Reports() {
                     return (
                       <View key={key} style={styles.trackRow}>
                         {cover ? (
-                          <Image source={{ uri: cover }} style={styles.trackImage} />
+                          <Image
+                            source={{ uri: cover }}
+                            style={styles.trackImage}
+                          />
                         ) : (
-                          <LinearGradient colors={["#333", "#111"]} style={styles.trackImage} />
+                          <LinearGradient
+                            colors={["#333", "#111"]}
+                            style={styles.trackImage}
+                          />
                         )}
                         <View style={{ flex: 1 }}>
                           <Text style={styles.trackTitle}>{title}</Text>
                           <Text style={styles.trackAuthor}>{author}</Text>
-                          <Text style={styles.trackStat}>Disliked {count} times</Text>
+                          <Text style={styles.trackStat}>
+                            Disliked {count} times
+                          </Text>
                         </View>
                       </View>
                     );
                   })}
               </View>
 
-        {/* Session history */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Session history</Text>
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Session history</Text>
 
-          {sessions.slice(0, 6).map((s) => (
-            <View key={s.id} style={styles.sessionRow}>
+                {sessions.slice(0, 6).map((s) => (
+                  <View key={s.id} style={styles.sessionRow}>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.rowBetween}>
+                        <Text
+                          style={styles.sessionMood}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {s.mood || "Unknown mood"}
+                        </Text>
 
-              {/* ---------- LEFT SIDE (2 lines) ---------- */}
-              <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.sessionFeedback,
+                            {
+                              color:
+                                s.feedback === "Very Positive"
+                                  ? "#7B78FF"
+                                  : s.feedback === "Positive"
+                                    ? "#7B78FF"
+                                    : s.feedback === "Negative"
+                                      ? "#7B78FF"
+                                      : s.feedback === "Very Negative"
+                                        ? "#7B78FF" 
+                                        : "#7B78FF",
+                            },
+                          ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {s.feedback || "—"}
+                        </Text>
+                      </View>
 
-                {/* LINE 1 — mood + feedback */}
-                <View style={styles.rowBetween}>
-                  <Text
-                    style={styles.sessionMood}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {s.mood || "Unknown mood"}
-                  </Text>
+                      <View style={[styles.rowBetween, { marginTop: 4 }]}>
+                        <Text style={styles.sessionDate}>
+                          {formatDate(s.createdAt)}
+                        </Text>
 
-                  <Text
-                    style={[
-                      styles.sessionFeedback,
-                      {
-                        color:
-                          s.feedback === "Very Positive"
-                            ? "#7B78FF"        // jasny fiolet (premium)
-                            : s.feedback === "Positive"
-                            ? "#7B78FF"        // główny fiolet
-                            : s.feedback === "Negative"
-                            ? "#7B78FF"      // półprzezroczysty fiolet
-                            : s.feedback === "Very Negative"
-                            ? "#7B78FF"      // pastelowy “alert violet”
-                            : "#7B78FF",          // neutral
-                      },
-                    ]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {s.feedback || "—"}
-                  </Text>
-                </View>
-
-                {/* LINE 2 — date + tag */}
-                <View style={[styles.rowBetween, { marginTop: 4 }]}>
-                  <Text style={styles.sessionDate}>{formatDate(s.createdAt)}</Text>
-
-                  {s.mode === "regulation" ? (
-                    <LinearGradient
-                      colors={["#7B78FF55", "#00C6FF55"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.tagRegulation}
-                    >
-                      <Text style={styles.tagText}>REGULATION</Text>
-                    </LinearGradient>
-                  ) : (
-                    <View style={styles.tagCurrent}>
-                      <Text style={styles.tagText}>CURRENT</Text>
+                        {s.mode === "regulation" ? (
+                          <LinearGradient
+                            colors={["#7B78FF55", "#00C6FF55"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.tagRegulation}
+                          >
+                            <Text style={styles.tagText}>REGULATION</Text>
+                          </LinearGradient>
+                        ) : (
+                          <View style={styles.tagCurrent}>
+                            <Text style={styles.tagText}>CURRENT</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  )}
-                </View>
-
+                  </View>
+                ))}
               </View>
-            </View>
-          ))}
-        </View>
-
-
             </>
           )}
         </ScrollView>
@@ -647,7 +642,14 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 
-  userName: { color: '#fff', fontSize: 16, fontWeight: '600', textShadowColor: '#000', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
+  userName: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    textShadowColor: "#000",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
 
   avatar: {
     width: 38,
@@ -671,8 +673,6 @@ const styles = StyleSheet.create({
     marginTop: 40,
     fontSize: 16,
   },
-
-  /* ---------- CARDS ---------- */
 
   card: {
     backgroundColor: "rgba(0,0,0,0.65)",
@@ -701,8 +701,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  /* ---------- PROGRESS ---------- */
-
   progressNumber: {
     color: "#7B78FF",
     fontSize: 32,
@@ -723,8 +721,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  /* ---------- TOP MOODS ---------- */
-
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -737,8 +733,6 @@ const styles = StyleSheet.create({
   },
 
   moodCount: { color: "#aaa" },
-
-  /* ---------- TRACK ROWS ---------- */
 
   trackRow: {
     flexDirection: "row",
@@ -758,8 +752,6 @@ const styles = StyleSheet.create({
 
   trackStat: { color: "#7B78FF", fontSize: 12 },
 
-  /* ---------- SESSION HISTORY ---------- */
-
   sessionRow: {
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -770,23 +762,21 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
     fontSize: 15,
-    maxWidth: "70%", // mood nigdy nie wypchnie feedbacku
+    maxWidth: "70%",
   },
 
   sessionFeedback: {
     fontWeight: "700",
     fontSize: 14,
     textAlign: "right",
-    maxWidth: "30%", // gwarantuje brak overflow
+    maxWidth: "30%",
   },
 
   sessionDate: {
     color: "#aaa",
     fontSize: 12,
   },
-
-  /* ---------- TAGS ---------- */
-
+  
   tagRegulation: {
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -811,4 +801,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

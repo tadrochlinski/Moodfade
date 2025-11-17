@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../utils/firebaseConfig";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
@@ -52,7 +58,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           spotifyConnected: data.spotifyConnected ?? false,
           photoBase64: data.photoBase64 ?? "",
           targetMood: data.targetMood ?? "",
-            targetMoodChangedAt: data.targetMoodChangedAt?.toDate?.() ?? null,
+          targetMoodChangedAt: data.targetMoodChangedAt?.toDate?.() ?? null,
         });
       } else {
         console.warn("⚠️ User doc missing in Firestore for UID:", uid);

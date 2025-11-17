@@ -2,9 +2,12 @@
   "expo": {
     "name": "moodfade",
     "slug": "moodfade",
-    "version": "1.0.0",
+    "version": "Beta",
     "orientation": "portrait",
     "scheme": "moodfade",
+    "extra": {
+      "redirectUri": "moodfade://redirect"
+    },
     "userInterfaceStyle": "automatic",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -13,7 +16,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "infoPlist": {
+        "UITextContentTypeUsername": "none",
+        "UITextContentTypePassword": "none",
+        "ASCredentialIdentityStoreEnabled": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,10 +35,7 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store"
-    ],
+    "plugins": ["expo-router", "expo-secure-store"],
     "experiments": {
       "typedRoutes": true
     }

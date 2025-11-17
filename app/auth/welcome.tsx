@@ -12,14 +12,18 @@ import {
 import * as AuthSession from "expo-auth-session";
 import * as SecureStore from "expo-secure-store";
 import { useRouter } from "expo-router";
-import { useAuth } from "../contexts/AuthProvider";
-import { db } from "../utils/firebaseConfig";
+import { useAuth } from "../../contexts/AuthProvider";
+import { db } from "../../utils/firebaseConfig";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import LottieView from "lottie-react-native";
-import backgroundAnimation from "../assets/lottie/Background.json";
+import backgroundAnimation from "../../assets/lottie/Background.json";
 
 const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID!;
-const redirectUri = AuthSession.makeRedirectUri();
+const redirectUri =
+  process.env.EXPO_PUBLIC_ENV === "production"
+    ? "moodfade://redirect"
+    : AuthSession.makeRedirectUri();
+
 const discovery = {
   authorizationEndpoint: "https://accounts.spotify.com/authorize",
   tokenEndpoint: "https://accounts.spotify.com/api/token",
@@ -38,7 +42,6 @@ export default function WelcomeScreen() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // 🎞 Fade-in animation
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -58,7 +61,7 @@ export default function WelcomeScreen() {
         setFavoriteArtists(
           Array.isArray(data.favoriteArtists)
             ? data.favoriteArtists.join(", ")
-            : ""
+            : "",
         );
         setSpotifyConnected(data.spotifyConnected ?? false);
       }
@@ -70,10 +73,17 @@ export default function WelcomeScreen() {
     {
       clientId,
       redirectUri,
-      scopes: ["user-read-email", "user-read-private", "playlist-modify-private"],
+      scopes: [
+        "user-read-email",
+        "user-read-private",
+        "playlist-modify-private",
+        "playlist-modify-public",
+        "playlist-read-private",
+        "playlist-read-collaborative",
+      ],
       usePKCE: true,
     },
-    discovery
+    discovery,
   );
 
   useEffect(() => {
@@ -82,21 +92,33 @@ export default function WelcomeScreen() {
       (async () => {
         try {
           setSpotifyLoading(true);
-          const tokenResponse = await AuthSession.exchangeCodeAsync(
+          const backendRes = await fetch(
+            `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/spotify/token`,
             {
-              clientId,
-              code,
-              redirectUri,
-              extraParams: { code_verifier: request?.codeVerifier! },
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                code,
+                code_verifier: request?.codeVerifier!,
+              }),
             },
-            discovery
           );
 
-          const accessToken = tokenResponse.accessToken;
-          const refreshToken = tokenResponse.refreshToken;
+          const tokenResponse = await backendRes.json();
+
+          if (!tokenResponse.access_token) {
+            throw new Error("Backend token exchange failed");
+          }
+
+          const accessToken = tokenResponse.access_token;
+          const refreshToken = tokenResponse.refresh_token;
+
           await SecureStore.setItemAsync("spotify_token", accessToken);
           if (refreshToken)
-            await SecureStore.setItemAsync("spotify_refresh_token", refreshToken);
+            await SecureStore.setItemAsync(
+              "spotify_refresh_token",
+              refreshToken,
+            );
 
           const spotifyRes = await fetch("https://api.spotify.com/v1/me", {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -111,12 +133,15 @@ export default function WelcomeScreen() {
               spotifyDisplayName: spotifyData.display_name,
               updatedAt: new Date().toISOString(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           setSpotifyConnected(true);
         } catch {
-          Alert.alert("Spotify Error", "Failed to connect your Spotify account.");
+          Alert.alert(
+            "Spotify Error",
+            "Failed to connect your Spotify account.",
+          );
         } finally {
           setSpotifyLoading(false);
         }
@@ -134,7 +159,7 @@ export default function WelcomeScreen() {
     if (!isFormValid)
       return Alert.alert(
         "Incomplete",
-        "Please fill in all fields and connect Spotify."
+        "Please fill in all fields and connect Spotify.",
       );
 
     const artistsArray = favoriteArtists
@@ -152,7 +177,7 @@ export default function WelcomeScreen() {
           spotifyConnected,
           updatedAt: new Date().toISOString(),
         },
-        { merge: true }
+        { merge: true },
       );
       router.replace("/(tabs)/home" as any);
     } catch {
@@ -186,6 +211,11 @@ export default function WelcomeScreen() {
               value={name}
               onChangeText={setName}
               style={styles.input}
+              autoComplete="off"
+              textContentType="none"
+              autoCorrect={false}
+              importantForAutofill="no"
+              secureTextEntry={false}
             />
           </View>
           <View style={styles.cardInput}>
@@ -195,6 +225,12 @@ export default function WelcomeScreen() {
               value={favoriteArtists}
               onChangeText={setFavoriteArtists}
               style={styles.input}
+              autoComplete="off"
+              textContentType="none"
+              autoCorrect={false}
+              importantForAutofill="no"
+              autoCapitalize="none"
+              secureTextEntry={false}
             />
           </View>
 
