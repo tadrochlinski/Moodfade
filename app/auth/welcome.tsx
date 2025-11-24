@@ -19,10 +19,13 @@ import LottieView from "lottie-react-native";
 import backgroundAnimation from "../../assets/lottie/Background.json";
 
 const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID!;
-const redirectUri =
-  process.env.EXPO_PUBLIC_ENV === "production"
-    ? "moodfade://redirect"
-    : AuthSession.makeRedirectUri();
+const redirectUri = process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI!;
+console.log("🎯 CLIENT ID (frontend):", process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID);
+console.log("🎯 REDIRECT URI (frontend):", process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI);
+
+console.log("REDIRECT URI USED WELCOME:", redirectUri);
+
+
 
 const discovery = {
   authorizationEndpoint: "https://accounts.spotify.com/authorize",
@@ -89,6 +92,7 @@ export default function WelcomeScreen() {
   useEffect(() => {
     if (response?.type === "success") {
       const { code } = response.params;
+      console.log("REDIRECT URI USED WELCOME:", redirectUri);
       (async () => {
         try {
           setSpotifyLoading(true);
@@ -100,7 +104,10 @@ export default function WelcomeScreen() {
               body: JSON.stringify({
                 code,
                 code_verifier: request?.codeVerifier!,
+                redirect_uri: redirectUri
               }),
+
+              
             },
           );
 

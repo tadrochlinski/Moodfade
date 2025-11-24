@@ -27,10 +27,12 @@ import { db, auth } from "../../utils/firebaseConfig";
 import { serverTimestamp } from "firebase/firestore";
 
 const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID!;
-const redirectUri =
-  process.env.EXPO_PUBLIC_ENV === "production"
-    ? "moodfade://redirect"
-    : AuthSession.makeRedirectUri();
+const redirectUri = process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI!;
+
+
+console.log("REDIRECT URI:", redirectUri);
+
+
 const discovery = {
   authorizationEndpoint: "https://accounts.spotify.com/authorize",
   tokenEndpoint: "https://accounts.spotify.com/api/token",
@@ -102,7 +104,10 @@ export default function Settings() {
               body: JSON.stringify({
                 code,
                 code_verifier: request?.codeVerifier!,
+                redirect_uri: redirectUri
               }),
+
+
             },
           );
 
