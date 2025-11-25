@@ -298,9 +298,10 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setAwaitingVerification(false)}>
+            <TouchableOpacity onPress={() => setForgotVisible(false)}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
+
           </View>
         </View>
       </Modal>
